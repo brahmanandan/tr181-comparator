@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Example demonstrating SubsetManager functionality for managing custom TR181 subsets.
+Example demonstrating OperatorRequirementManager functionality for managing custom TR181 operator requirements.
 
 This example shows how to:
-1. Create and manage custom TR181 node subsets
-2. Load and save subset definitions from/to JSON and YAML files
+1. Create and manage custom TR181 node operator requirements
+2. Load and save operator requirement definitions from/to JSON and YAML files
 3. Add custom nodes with validation
-4. Validate subset definitions and TR181 naming conventions
+4. Validate operator requirement definitions and TR181 naming conventions
 """
 
 import asyncio
@@ -18,13 +18,13 @@ import sys
 # Add parent directory to path to import tr181_comparator
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tr181_comparator.extractors import SubsetManager, ValidationError
+from tr181_comparator.extractors import OperatorRequirementManager, ValidationError
 from tr181_comparator.models import TR181Node, AccessLevel, ValueRange, TR181Event, TR181Function
 
 
 async def main():
-    """Demonstrate SubsetManager functionality."""
-    print("=== TR181 SubsetManager Example ===\n")
+    """Demonstrate OperatorRequirementManager functionality."""
+    print("=== TR181 OperatorRequirementManager Example ===\n")
     
     # Create temporary files for demonstration
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as json_file:
@@ -34,10 +34,10 @@ async def main():
         yaml_path = yaml_file.name
     
     try:
-        # 1. Create a SubsetManager for JSON format
-        print("1. Creating SubsetManager for JSON format")
-        json_manager = SubsetManager(json_path)
-        print(f"   Subset path: {json_path}")
+        # 1. Create an OperatorRequirementManager for JSON format
+        print("1. Creating OperatorRequirementManager for JSON format")
+        json_manager = OperatorRequirementManager(json_path)
+        print(f"   Operator requirement path: {json_path}")
         print(f"   File format: {json_manager._detect_file_format()}")
         
         # 2. Create sample TR181 nodes
@@ -68,9 +68,9 @@ async def main():
         for node in sample_nodes:
             print(f"   - {node.path} ({node.data_type}, {node.access.value})")
         
-        # 3. Save subset to JSON file
-        print("\n3. Saving subset to JSON file")
-        await json_manager.save_subset(sample_nodes)
+        # 3. Save operator requirement to JSON file
+        print("\n3. Saving operator requirement to JSON file")
+        await json_manager.save_operator_requirement(sample_nodes)
         print(f"   Saved {len(sample_nodes)} nodes to {json_path}")
         
         # Verify file was created and show content
@@ -78,8 +78,8 @@ async def main():
             data = json.load(f)
         print(f"   File contains {data['metadata']['total_nodes']} nodes")
         
-        # 4. Load subset from JSON file
-        print("\n4. Loading subset from JSON file")
+        # 4. Load operator requirement from JSON file
+        print("\n4. Loading operator requirement from JSON file")
         loaded_nodes = await json_manager.extract()
         print(f"   Loaded {len(loaded_nodes)} nodes")
         for node in loaded_nodes:
@@ -124,18 +124,18 @@ async def main():
         for node in standard_nodes:
             print(f"   - {node.path} (standard)")
         
-        # 7. Save updated subset with custom node
-        print("\n7. Saving updated subset with custom node")
-        await json_manager.save_subset(json_manager._nodes)
+        # 7. Save updated operator requirement with custom node
+        print("\n7. Saving updated operator requirement with custom node")
+        await json_manager.save_operator_requirement(json_manager._nodes)
         print(f"   Saved {len(json_manager._nodes)} nodes (including custom)")
         
-        # 8. Validate subset
-        print("\n8. Validating subset")
+        # 8. Validate operator requirement
+        print("\n8. Validating operator requirement")
         validation_result = await json_manager.validate()
         if validation_result.is_valid:
-            print("   ✓ Subset validation passed")
+            print("   ✓ Operator requirement validation passed")
         else:
-            print("   ✗ Subset validation failed:")
+            print("   ✗ Operator requirement validation failed:")
             for error in validation_result.errors:
                 print(f"     - {error}")
         
@@ -146,12 +146,12 @@ async def main():
         
         # 9. Demonstrate YAML format
         print("\n9. Demonstrating YAML format")
-        yaml_manager = SubsetManager(yaml_path)
+        yaml_manager = OperatorRequirementManager(yaml_path)
         print(f"   YAML path: {yaml_path}")
         print(f"   File format: {yaml_manager._detect_file_format()}")
         
         # Save same nodes to YAML
-        await yaml_manager.save_subset(json_manager._nodes)
+        await yaml_manager.save_operator_requirement(json_manager._nodes)
         print(f"   Saved {len(json_manager._nodes)} nodes to YAML format")
         
         # Load from YAML
@@ -210,7 +210,7 @@ async def main():
         print(f"   Removed node: {removed}")
         print(f"   Node count: {initial_count} -> {final_count}")
         
-        print("\n=== SubsetManager Example Complete ===")
+        print("\n=== OperatorRequirementManager Example Complete ===")
         
     finally:
         # Clean up temporary files

@@ -9,7 +9,7 @@ from datetime import datetime
 from unittest.mock import patch, mock_open
 
 from tr181_comparator.config import (
-    DeviceConfig, HookConfig, SubsetConfig, ExportConfig, SystemConfig,
+    DeviceConfig, HookConfig, OperatorRequirementConfig, ExportConfig, SystemConfig,
     ConfigurationManager, DEFAULT_HOOK_CONFIGS
 )
 
@@ -161,34 +161,34 @@ class TestHookConfig:
             )
 
 
-class TestSubsetConfig:
-    """Test SubsetConfig dataclass and validation."""
+class TestOperatorRequirementConfig:
+    """Test OperatorRequirementConfig dataclass and validation."""
     
-    def test_valid_subset_config(self):
-        """Test creating a valid subset configuration."""
+    def test_valid_operator_requirement_config(self):
+        """Test creating a valid operator requirement configuration."""
         created_date = datetime.now()
         modified_date = datetime.now()
         
-        config = SubsetConfig(
-            name="WiFi Subset",
+        config = OperatorRequirementConfig(
+            name="WiFi Operator Requirement",
             description="WiFi-related TR181 parameters",
-            file_path="/path/to/wifi_subset.json",
+            file_path="/path/to/wifi_requirement.json",
             version="2.0",
             created_date=created_date,
             modified_date=modified_date
         )
         
-        assert config.name == "WiFi Subset"
+        assert config.name == "WiFi Operator Requirement"
         assert config.description == "WiFi-related TR181 parameters"
-        assert config.file_path == "/path/to/wifi_subset.json"
+        assert config.file_path == "/path/to/wifi_requirement.json"
         assert config.version == "2.0"
         assert config.created_date == created_date
         assert config.modified_date == modified_date
     
-    def test_subset_config_defaults(self):
-        """Test subset configuration with default values."""
-        config = SubsetConfig(
-            name="Test Subset",
+    def test_operator_requirement_config_defaults(self):
+        """Test operator requirement configuration with default values."""
+        config = OperatorRequirementConfig(
+            name="Test Operator Requirement",
             description="Test description",
             file_path="/test/path"
         )
@@ -197,28 +197,28 @@ class TestSubsetConfig:
         assert config.created_date is None
         assert config.modified_date is None
     
-    def test_subset_config_validation_empty_name(self):
+    def test_operator_requirement_config_validation_empty_name(self):
         """Test validation fails for empty name."""
-        with pytest.raises(ValueError, match="Subset name cannot be empty"):
-            SubsetConfig(
+        with pytest.raises(ValueError, match="Operator requirement name cannot be empty"):
+            OperatorRequirementConfig(
                 name="",
                 description="Test",
                 file_path="/test"
             )
     
-    def test_subset_config_validation_empty_file_path(self):
+    def test_operator_requirement_config_validation_empty_file_path(self):
         """Test validation fails for empty file path."""
-        with pytest.raises(ValueError, match="Subset file path cannot be empty"):
-            SubsetConfig(
+        with pytest.raises(ValueError, match="Operator requirement file path cannot be empty"):
+            OperatorRequirementConfig(
                 name="Test",
                 description="Test",
                 file_path=""
             )
     
-    def test_subset_config_validation_empty_version(self):
+    def test_operator_requirement_config_validation_empty_version(self):
         """Test validation fails for empty version."""
-        with pytest.raises(ValueError, match="Subset version cannot be empty"):
-            SubsetConfig(
+        with pytest.raises(ValueError, match="Operator requirement version cannot be empty"):
+            OperatorRequirementConfig(
                 name="Test",
                 description="Test",
                 file_path="/test",
@@ -293,7 +293,7 @@ class TestSystemConfig:
             authentication={}
         )
         
-        subset = SubsetConfig(
+        operator_requirement = OperatorRequirementConfig(
             name="Test Subset",
             description="Test",
             file_path="/test"
@@ -305,7 +305,7 @@ class TestSystemConfig:
         
         config = SystemConfig(
             devices=[device],
-            subsets=[subset],
+            operator_requirements=[operator_requirement],
             export_settings=export_settings,
             hook_configs=hook_configs,
             connection_defaults={"timeout": 30},
@@ -313,7 +313,7 @@ class TestSystemConfig:
         )
         
         assert len(config.devices) == 1
-        assert len(config.subsets) == 1
+        assert len(config.operator_requirements) == 1
         assert config.export_settings == export_settings
         assert config.hook_configs == hook_configs
         assert config.connection_defaults == {"timeout": 30}
@@ -324,7 +324,7 @@ class TestSystemConfig:
         with pytest.raises(ValueError, match="Devices must be a list"):
             SystemConfig(
                 devices="invalid",
-                subsets=[],
+                operator_requirements=[],
                 export_settings=ExportConfig(default_format="json"),
                 hook_configs={},
                 connection_defaults={}
@@ -335,7 +335,7 @@ class TestSystemConfig:
         with pytest.raises(ValueError, match="Export settings must be an ExportConfig instance"):
             SystemConfig(
                 devices=[],
-                subsets=[],
+                operator_requirements=[],
                 export_settings="invalid",
                 hook_configs={},
                 connection_defaults={}
@@ -387,7 +387,7 @@ class TestConfigurationManager:
         
         assert isinstance(config, SystemConfig)
         assert config.devices == []
-        assert config.subsets == []
+        assert config.operator_requirements == []
         assert config.export_settings.default_format == "json"
         assert "rest" in config.hook_configs
         assert "cwmp" in config.hook_configs
@@ -407,7 +407,7 @@ class TestConfigurationManager:
                 "endpoint": "http://test.com",
                 "authentication": {"token": "test"}
             }],
-            "subsets": [{
+            "operator_requirements": [{
                 "name": "Test Subset",
                 "description": "Test",
                 "file_path": "/test"
@@ -436,8 +436,8 @@ class TestConfigurationManager:
             assert isinstance(config, SystemConfig)
             assert len(config.devices) == 1
             assert config.devices[0].type == "rest"
-            assert len(config.subsets) == 1
-            assert config.subsets[0].name == "Test Subset"
+            assert len(config.operator_requirements) == 1
+            assert config.operator_requirements[0].name == "Test Subset"
         finally:
             Path(temp_path).unlink()
     
@@ -449,7 +449,7 @@ class TestConfigurationManager:
                 "endpoint": "http://cwmp.test.com",
                 "authentication": {"username": "admin", "password": "secret"}
             }],
-            "subsets": [],
+            "operator_requirements": [],
             "export_settings": {
                 "default_format": "xml"
             },
@@ -501,7 +501,7 @@ class TestConfigurationManager:
                 loaded_data = json.load(f)
             
             assert "devices" in loaded_data
-            assert "subsets" in loaded_data
+            assert "operator_requirements" in loaded_data
             assert "export_settings" in loaded_data
         finally:
             Path(temp_path).unlink()
@@ -522,7 +522,7 @@ class TestConfigurationManager:
                 loaded_data = yaml.safe_load(f)
             
             assert "devices" in loaded_data
-            assert "subsets" in loaded_data
+            assert "operator_requirements" in loaded_data
             assert "export_settings" in loaded_data
         finally:
             Path(temp_path).unlink()
@@ -554,18 +554,18 @@ class TestConfigurationManager:
         assert len(errors) > 0
         assert any("Timeout must be positive" in error for error in errors)
     
-    def test_validate_config_missing_subset_file(self):
-        """Test validation with missing subset file."""
+    def test_validate_config_missing_operator_requirement_file(self):
+        """Test validation with missing operator requirement file."""
         manager = ConfigurationManager()
         config = manager.create_default_config()
         
-        # Add subset with non-existent file
-        subset = SubsetConfig(
+        # Add operator requirement with non-existent file
+        operator_requirement = OperatorRequirementConfig(
             name="Test Subset",
             description="Test",
             file_path="/nonexistent/file.json"
         )
-        config.subsets.append(subset)
+        config.operator_requirements.append(operator_requirement)
         
         errors = manager.validate_config(config)
         assert len(errors) > 0
@@ -577,7 +577,7 @@ class TestConfigurationManager:
         
         # Create config with datetime
         created_date = datetime.now()
-        subset_data = {
+        operator_requirement_data = {
             "name": "Test Subset",
             "description": "Test",
             "file_path": "/test",
@@ -586,15 +586,15 @@ class TestConfigurationManager:
         
         config_data = {
             "devices": [],
-            "subsets": [subset_data],
+            "operator_requirements": [operator_requirement_data],
             "export_settings": {"default_format": "json"},
             "hook_configs": {},
             "connection_defaults": {}
         }
         
         config = manager._dict_to_config(config_data)
-        assert isinstance(config.subsets[0].created_date, datetime)
+        assert isinstance(config.operator_requirements[0].created_date, datetime)
         
         # Convert back to dict
         result_dict = manager._config_to_dict(config)
-        assert "subsets" in result_dict
+        assert "operator_requirements" in result_dict

@@ -9,7 +9,7 @@ import asyncio
 import json
 from datetime import datetime
 from tr181_comparator import (
-    CWMPExtractor, SubsetManager, HookBasedDeviceExtractor,
+    CWMPExtractor, OperatorRequirementManager, HookBasedDeviceExtractor,
     ComparisonEngine, EnhancedComparisonEngine,
     TR181Node, AccessLevel, ValueRange,
     DeviceConfig, RESTAPIHook, CWMPHook
@@ -56,9 +56,9 @@ async def example_1_basic_cwmp_extraction():
     except Exception as e:
         print(f"✗ CWMP extraction failed: {e}")
 
-async def example_2_create_custom_subset():
-    """Example 2: Create and save a custom TR181 subset."""
-    print("\nExample 2: Create Custom Subset")
+async def example_2_create_custom_operator_requirement():
+    """Example 2: Create and save a custom TR181 operator requirement."""
+    print("\nExample 2: Create Custom Operator Requirement")
     print("-" * 40)
     
     # Define custom TR181 nodes
@@ -110,19 +110,19 @@ async def example_2_create_custom_subset():
     ]
     
     try:
-        # Create subset manager
-        subset_manager = SubsetManager("examples/wifi_subset.json")
+        # Create operator requirement manager
+        operator_requirement_manager = OperatorRequirementManager("examples/wifi_operator_requirement.json")
         
-        # Save the custom subset
-        await subset_manager.save_subset(custom_nodes)
-        print("✓ Custom subset saved to wifi_subset.json")
+        # Save the custom operator requirement
+        await operator_requirement_manager.save_operator_requirement(custom_nodes)
+        print("✓ Custom operator requirement saved to wifi_operator_requirement.json")
         
         # Load it back to verify
-        loaded_nodes = await subset_manager.extract()
-        print(f"✓ Loaded {len(loaded_nodes)} nodes from subset")
+        loaded_nodes = await operator_requirement_manager.extract()
+        print(f"✓ Loaded {len(loaded_nodes)} nodes from operator requirement")
         
-        # Display subset contents
-        print("\nSubset contents:")
+        # Display operator requirement contents
+        print("\nOperator requirement contents:")
         for node in loaded_nodes:
             constraints = ""
             if node.value_range:
@@ -133,18 +133,18 @@ async def example_2_create_custom_subset():
             print(f"  {node.path}: {node.data_type} ({node.access}){constraints}")
         
     except Exception as e:
-        print(f"✗ Subset creation failed: {e}")
+        print(f"✗ Operator requirement creation failed: {e}")
 
 async def example_3_basic_comparison():
-    """Example 3: Compare CWMP nodes against custom subset."""
+    """Example 3: Compare CWMP nodes against custom operator requirement."""
     print("\nExample 3: Basic Comparison")
     print("-" * 40)
     
     try:
-        # Load the subset we created in example 2
-        subset_manager = SubsetManager("examples/wifi_subset.json")
-        subset_nodes = await subset_manager.extract()
-        print(f"✓ Loaded {len(subset_nodes)} nodes from subset")
+        # Load the operator requirement we created in example 2
+        operator_requirement_manager = OperatorRequirementManager("examples/wifi_operator_requirement.json")
+        operator_requirement_nodes = await operator_requirement_manager.extract()
+        print(f"✓ Loaded {len(operator_requirement_nodes)} nodes from operator requirement")
         
         # For demonstration, create some mock CWMP nodes
         # In real usage, these would come from CWMPExtractor
@@ -177,7 +177,7 @@ async def example_3_basic_comparison():
                 access=AccessLevel.READ_ONLY,
                 value="Example Corp"
             ),
-            # This node exists in CWMP but not in subset
+            # This node exists in CWMP but not in operator requirement
             TR181Node(
                 path="Device.WiFi.Radio.1.TransmitPower",
                 name="TransmitPower",
@@ -190,12 +190,12 @@ async def example_3_basic_comparison():
         
         # Perform comparison
         engine = ComparisonEngine()
-        result = await engine.compare(mock_cwmp_nodes, subset_nodes)
+        result = await engine.compare(mock_cwmp_nodes, operator_requirement_nodes)
         
         # Display results
         print(f"\nComparison Results:")
         print(f"  CWMP nodes: {result.summary.total_nodes_source1}")
-        print(f"  Subset nodes: {result.summary.total_nodes_source2}")
+        print(f"  Operator requirement nodes: {result.summary.total_nodes_source2}")
         print(f"  Common nodes: {result.summary.common_nodes}")
         print(f"  Differences: {result.summary.differences_count}")
         
@@ -205,7 +205,7 @@ async def example_3_basic_comparison():
                 print(f"  + {node.path} = {node.value}")
         
         if result.only_in_source2:
-            print(f"\nNodes only in subset ({len(result.only_in_source2)}):")
+            print(f"\nNodes only in operator requirement ({len(result.only_in_source2)}):")
             for node in result.only_in_source2:
                 print(f"  - {node.path}")
         
@@ -272,9 +272,9 @@ async def example_5_enhanced_comparison():
     print("-" * 40)
     
     try:
-        # Load subset (specification)
-        subset_manager = SubsetManager("examples/wifi_subset.json")
-        subset_nodes = await subset_manager.extract()
+        # Load operator requirement (specification)
+        operator_requirement_manager = OperatorRequirementManager("examples/wifi_operator_requirement.json")
+        operator_requirement_nodes = await operator_requirement_manager.extract()
         
         # Create mock device nodes with some validation issues
         device_nodes = [
@@ -311,7 +311,7 @@ async def example_5_enhanced_comparison():
         # Perform enhanced comparison
         enhanced_engine = EnhancedComparisonEngine()
         result = await enhanced_engine.compare_with_validation(
-            subset_nodes, 
+            operator_requirement_nodes, 
             device_nodes
         )
         
@@ -348,8 +348,8 @@ async def example_6_export_results():
     
     try:
         # Perform a basic comparison (reusing previous examples)
-        subset_manager = SubsetManager("examples/wifi_subset.json")
-        subset_nodes = await subset_manager.extract()
+        operator_requirement_manager = OperatorRequirementManager("examples/wifi_operator_requirement.json")
+        operator_requirement_nodes = await operator_requirement_manager.extract()
         
         # Mock CWMP nodes
         cwmp_nodes = [
@@ -370,18 +370,18 @@ async def example_6_export_results():
         ]
         
         engine = ComparisonEngine()
-        result = await engine.compare(cwmp_nodes, subset_nodes)
+        result = await engine.compare(cwmp_nodes, operator_requirement_nodes)
         
         # Export to JSON
         json_report = {
             "metadata": {
                 "timestamp": datetime.now().isoformat(),
-                "comparison_type": "cwmp_vs_subset",
+                "comparison_type": "cwmp_vs_operator_requirement",
                 "tool_version": "1.0.0"
             },
             "summary": {
                 "total_cwmp_nodes": result.summary.total_nodes_source1,
-                "total_subset_nodes": result.summary.total_nodes_source2,
+                "total_operator_requirement_nodes": result.summary.total_nodes_source2,
                 "common_nodes": result.summary.common_nodes,
                 "differences": result.summary.differences_count
             },
@@ -395,7 +395,7 @@ async def example_6_export_results():
                     }
                     for node in result.only_in_source1
                 ],
-                "only_in_subset": [
+                "only_in_operator_requirement": [
                     {
                         "path": node.path,
                         "type": node.data_type,
@@ -408,7 +408,7 @@ async def example_6_export_results():
                         "path": diff.path,
                         "property": diff.property,
                         "cwmp_value": diff.source1_value,
-                        "subset_value": diff.source2_value,
+                        "operator_requirement_value": diff.source2_value,
                         "severity": diff.severity.value
                     }
                     for diff in result.differences
@@ -428,7 +428,7 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 SUMMARY
 =======
 CWMP Nodes: {result.summary.total_nodes_source1}
-Subset Nodes: {result.summary.total_nodes_source2}
+Operator Requirement Nodes: {result.summary.total_nodes_source2}
 Common Nodes: {result.summary.common_nodes}
 Differences: {result.summary.differences_count}
 
@@ -440,8 +440,8 @@ NODES ONLY IN CWMP
             text_report += f"{node.path}: {node.data_type} = {node.value} ({node.access.value})\n"
         
         text_report += f"""
-NODES ONLY IN SUBSET
-====================
+NODES ONLY IN OPERATOR REQUIREMENT
+==================================
 """
         
         for node in result.only_in_source2:
@@ -474,7 +474,7 @@ async def main():
     
     # Run examples in sequence
     await example_1_basic_cwmp_extraction()
-    await example_2_create_custom_subset()
+    await example_2_create_custom_operator_requirement()
     await example_3_basic_comparison()
     await example_4_device_extraction()
     await example_5_enhanced_comparison()
@@ -483,7 +483,7 @@ async def main():
     print(f"\n" + "=" * 50)
     print("All examples completed!")
     print("\nFiles created:")
-    print("  - examples/wifi_subset.json")
+    print("  - examples/wifi_operator_requirement.json")
     print("  - examples/comparison_report.json")
     print("  - examples/comparison_report.txt")
 

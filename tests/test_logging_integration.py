@@ -41,7 +41,7 @@ class TestLoggingIntegrationWithMain:
         # Create test configuration
         self.system_config = SystemConfig(
             devices=[],
-            subsets=[],
+            operator_requirements=[],
             export_settings=ExportConfig(
                 include_metadata=True,
                 default_format="json"
@@ -75,7 +75,7 @@ class TestLoggingIntegrationWithMain:
         # Mock the comparison methods to avoid actual device connections
         with patch.object(app, '_load_cwmp_config') as mock_load_cwmp, \
              patch('tr181_comparator.main.CWMPExtractor') as mock_cwmp_extractor, \
-             patch('tr181_comparator.main.SubsetManager') as mock_subset_manager:
+             patch('tr181_comparator.main.OperatorRequirementManager') as mock_operator_requirement_manager:
             
             # Setup mocks
             mock_load_cwmp.return_value = {"endpoint": "http://test.com", "authentication": {}}
@@ -86,23 +86,23 @@ class TestLoggingIntegrationWithMain:
             ]
             mock_cwmp_extractor.return_value = mock_cwmp_instance
             
-            mock_subset_instance = AsyncMock()
-            mock_subset_instance.extract.return_value = [
+            mock_operator_requirement_instance = AsyncMock()
+            mock_operator_requirement_instance.extract.return_value = [
                 TR181Node(path="Device.Test.2", name="Test2", data_type="string", access=AccessLevel.READ_ONLY)
             ]
-            mock_subset_manager.return_value = mock_subset_instance
+            mock_operator_requirement_manager.return_value = mock_operator_requirement_instance
             
             # Perform comparison
             try:
-                result = await app.compare_cwmp_vs_subset("test_cwmp.json", "test_subset.json")
+                result = await app.compare_cwmp_vs_operator_requirement("test_cwmp.json", "test_operator_requirement.json")
                 
                 # Verify comparison completed
                 assert result is not None
                 
                 # Check log file contains comparison messages
                 log_content = Path(self.log_file).read_text()
-                assert "Starting CWMP vs Subset comparison" in log_content
-                assert "CWMP vs Subset comparison completed successfully" in log_content
+                assert "Starting CWMP vs Operator Requirement comparison" in log_content
+                assert "CWMP vs Operator Requirement comparison completed successfully" in log_content
                 
                 # Verify structured logging
                 log_lines = [line for line in log_content.strip().split('\n') if line]
@@ -125,7 +125,7 @@ class TestLoggingIntegrationWithMain:
             except Exception as e:
                 # Even if comparison fails, logging should work
                 log_content = Path(self.log_file).read_text()
-                assert "CWMP vs Subset comparison" in log_content
+                assert "CWMP vs Operator Requirement comparison" in log_content
     
     def test_performance_monitoring_integration(self):
         """Test performance monitoring integration."""
@@ -180,7 +180,7 @@ class TestLoggingIntegrationWithCLI:
             
             mock_default_config.return_value = SystemConfig(
                 devices=[],
-                subsets=[],
+                operator_requirements=[],
                 export_settings=ExportConfig(include_metadata=True, default_format="json"),
                 hook_configs={},
                 connection_defaults={}
@@ -333,7 +333,7 @@ class TestLoggingErrorScenarios:
         
         system_config = SystemConfig(
             devices=[],
-            subsets=[],
+            operator_requirements=[],
             export_settings=ExportConfig(include_metadata=True, default_format="json"),
             hook_configs={},
             connection_defaults={}
@@ -342,7 +342,7 @@ class TestLoggingErrorScenarios:
         
         # Test with invalid configuration paths to trigger errors
         try:
-            await app.compare_cwmp_vs_subset("nonexistent_cwmp.json", "nonexistent_subset.json")
+            await app.compare_cwmp_vs_operator_requirement("nonexistent_cwmp.json", "nonexistent_operator_requirement.json")
         except (TR181Error, FileNotFoundError, Exception):
             pass  # Expected to fail
         

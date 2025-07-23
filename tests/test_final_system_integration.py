@@ -23,9 +23,9 @@ from tr181_comparator.models import (
     TR181Node, AccessLevel, ValueRange, TR181Event, TR181Function, Severity
 )
 from tr181_comparator.main import TR181ComparatorApp, ReportGenerator
-from tr181_comparator.config import SystemConfig, DeviceConfig, SubsetConfig, ExportConfig
+from tr181_comparator.config import SystemConfig, DeviceConfig, OperatorRequirementConfig, ExportConfig
 from tr181_comparator.comparison import ComparisonEngine, EnhancedComparisonEngine
-from tr181_comparator.extractors import SubsetManager, CWMPExtractor, HookBasedDeviceExtractor
+from tr181_comparator.extractors import OperatorRequirementManager, CWMPExtractor, HookBasedDeviceExtractor
 from tr181_comparator.hooks import DeviceHookFactory, HookType, DeviceConfig as HookDeviceConfig
 from tr181_comparator.validation import TR181Validator
 from tr181_comparator.errors import (
@@ -161,12 +161,12 @@ class SystemTestDataGenerator:
                     retry_count=2
                 )
             ],
-            subsets=[
-                SubsetConfig(
-                    name="test_subset_1",
-                    file_path="test_subset_1.json",
+            operator_requirements=[
+                OperatorRequirementConfig(
+                    name="test_operator_requirement_1",
+                    file_path="test_operator_requirement_1.json",
                     version="1.0.0",
-                    description="Test subset for system testing"
+                    description="Test operator requirement for system testing"
                 )
             ],
             export_settings=ExportConfig(
@@ -287,8 +287,9 @@ class MockSystemHook:
         if self.should_fail:
             raise ConnectionError("Function call failed")
         return {"result": "success", "output": {}}
-class
- TestSystemRequirementsValidation:
+
+
+class TestSystemRequirementsValidation:
     """Test all system requirements are met through acceptance testing."""
     
     @pytest.mark.asyncio
@@ -323,9 +324,9 @@ class
         print(f"✓ Requirement 1.1 validated: Extracted {len(extracted_nodes)} TR181 nodes with hierarchical structure")
     
     @pytest.mark.asyncio
-    async def test_requirement_2_1_custom_subset_definition(self, tmp_path):
-        """Test Requirement 2.1: Define custom subset of TR181 nodes."""
-        # Create custom subset
+    async def test_requirement_2_1_custom_operator_requirement_definition(self, tmp_path):
+        """Test Requirement 2.1: Define custom operator requirement of TR181 nodes."""
+        # Create custom operator requirement
         custom_nodes = [
             TR181Node(
                 path="Device.WiFi.Radio.1.Enable",
@@ -347,56 +348,56 @@ class
         ]
         
         # Save subset
-        subset_file = tmp_path / "custom_subset.json"
-        subset_manager = SubsetManager(str(subset_file))
-        await subset_manager.save_subset(custom_nodes)
+        operator_requirement_file = tmp_path / "custom_operator_requirement.json"
+        operator_requirement_manager = OperatorRequirementManager(str(operator_requirement_file))
+        await operator_requirement_manager.save_operator_requirement(custom_nodes)
         
         # Load and verify
-        loaded_nodes = await subset_manager.extract()
+        loaded_nodes = await operator_requirement_manager.extract()
         
         # Verify requirement 2.1
         assert len(loaded_nodes) == 2
         assert any(node.is_custom for node in loaded_nodes)
         assert all(node.path.startswith("Device.") for node in loaded_nodes)
         
-        print(f"✓ Requirement 2.1 validated: Created custom subset with {len(loaded_nodes)} nodes including custom nodes")
+        print(f"✓ Requirement 2.1 validated: Created custom operator requirement with {len(loaded_nodes)} nodes including custom nodes")
     
     @pytest.mark.asyncio
-    async def test_requirement_3_1_cwmp_vs_subset_comparison(self, tmp_path):
-        """Test Requirement 3.1: Compare CWMP TR181 nodes against custom subset."""
+    async def test_requirement_3_1_cwmp_vs_operator_requirement_comparison(self, tmp_path):
+        """Test Requirement 3.1: Compare CWMP TR181 nodes against custom operator requirement."""
         # Generate CWMP nodes
         cwmp_nodes = SystemTestDataGenerator.generate_large_realistic_dataset(50)
         
-        # Create subset with partial overlap
-        subset_nodes = cwmp_nodes[:30]  # First 30 nodes
-        subset_nodes.extend([
+        # Create operator requirement with partial overlap
+        operator_requirement_nodes = cwmp_nodes[:30]  # First 30 nodes
+        operator_requirement_nodes.extend([
             TR181Node(
-                path="Device.Custom.OnlyInSubset",
-                name="OnlyInSubset",
+                path="Device.Custom.OnlyInOperatorRequirement",
+                name="OnlyInOperatorRequirement",
                 data_type="string",
                 access=AccessLevel.READ_WRITE,
-                value="subset_only",
+                value="operator_requirement_only",
                 is_custom=True
             )
         ])
         
-        # Save subset
-        subset_file = tmp_path / "comparison_subset.json"
-        subset_manager = SubsetManager(str(subset_file))
-        await subset_manager.save_subset(subset_nodes)
+        # Save operator requirement
+        operator_requirement_file = tmp_path / "comparison_operator_requirement.json"
+        operator_requirement_manager = OperatorRequirementManager(str(operator_requirement_file))
+        await operator_requirement_manager.save_operator_requirement(operator_requirement_nodes)
         
         # Perform comparison
         comparison_engine = ComparisonEngine()
-        result = await comparison_engine.compare(cwmp_nodes, subset_nodes)
+        result = await comparison_engine.compare(cwmp_nodes, operator_requirement_nodes)
         
         # Verify requirement 3.1
         assert result.summary.total_nodes_source1 == 50  # CWMP nodes
-        assert result.summary.total_nodes_source2 == 31  # Subset nodes
+        assert result.summary.total_nodes_source2 == 31  # Operator requirement nodes
         assert len(result.only_in_source1) == 20  # Nodes only in CWMP
-        assert len(result.only_in_source2) == 1   # Custom node only in subset
+        assert len(result.only_in_source2) == 1   # Custom node only in operator requirement
         assert result.summary.common_nodes == 30  # Overlapping nodes
         
-        print(f"✓ Requirement 3.1 validated: CWMP vs subset comparison identified {len(result.only_in_source1)} CWMP-only and {len(result.only_in_source2)} subset-only nodes")
+        print(f"✓ Requirement 3.1 validated: CWMP vs operator requirement comparison identified {len(result.only_in_source1)} CWMP-only and {len(result.only_in_source2)} operator requirement-only nodes")
     
     @pytest.mark.asyncio
     async def test_requirement_6_1_export_multiple_formats(self, tmp_path):
@@ -433,8 +434,9 @@ class
             assert 'metadata' in json_data
         
         print(f"✓ Requirement 6.1 validated: Successfully exported results in JSON, XML, and text formats")
-c
-lass TestPerformanceAndScalability:
+
+
+class TestPerformanceAndScalability:
     """Test memory usage and performance with large datasets."""
     
     def get_memory_usage(self) -> float:
@@ -612,8 +614,10 @@ class TestSecurityAndErrorHandling:
                 # Exception is acceptable for malicious input
                 assert isinstance(e, (ValueError, ValidationError))
         
-        print(f"✓ Input validation security: Tested {len(malicious_paths)} malicious inputs")cla
-ss TestEndToEndWorkflows:
+        print(f"✓ Input validation security: Tested {len(malicious_paths)} malicious inputs")
+
+
+class TestEndToEndWorkflows:
     """Test complete end-to-end workflows."""
     
     @pytest.mark.asyncio
@@ -629,7 +633,7 @@ ss TestEndToEndWorkflows:
         
         # 2. Create test data
         cwmp_nodes = SystemTestDataGenerator.generate_large_realistic_dataset(100)
-        subset_nodes = cwmp_nodes[:75]  # Subset of CWMP nodes
+        operator_requirement_nodes = cwmp_nodes[:75]  # Subset of CWMP nodes
         device_nodes = cwmp_nodes[25:] + [  # Overlapping with different nodes
             TR181Node(
                 path="Device.Implementation.CustomFeature",
@@ -641,21 +645,21 @@ ss TestEndToEndWorkflows:
             )
         ]
         
-        # 3. Save subset
-        subset_file = tmp_path / "workflow_subset.json"
-        subset_manager = SubsetManager(str(subset_file))
-        await subset_manager.save_subset(subset_nodes)
+        # 3. Save operator requirement
+        operator_requirement_file = tmp_path / "workflow_operator_requirement.json"
+        operator_requirement_manager = OperatorRequirementManager(str(operator_requirement_file))
+        await operator_requirement_manager.save_operator_requirement(operator_requirement_nodes)
         
         # 4. Create application
         app = TR181ComparatorApp(system_config)
         
         # 5. Perform all comparison types
         
-        # CWMP vs Subset comparison (simulated)
+        # CWMP vs Operator Requirement comparison (simulated)
         comparison_engine = ComparisonEngine()
-        cwmp_vs_subset_result = await comparison_engine.compare(cwmp_nodes, subset_nodes)
+        cwmp_vs_operator_requirement_result = await comparison_engine.compare(cwmp_nodes, operator_requirement_nodes)
         
-        # Subset vs Device comparison
+        # Operator Requirement vs Device comparison
         mock_device_hook = MockSystemHook(device_nodes)
         device_config = HookDeviceConfig(
             type="rest",
@@ -667,8 +671,8 @@ ss TestEndToEndWorkflows:
         device_extractor = HookBasedDeviceExtractor(mock_device_hook, device_config)
         
         enhanced_engine = EnhancedComparisonEngine()
-        subset_vs_device_result = await enhanced_engine.compare_with_validation(
-            subset_nodes, device_nodes, device_extractor
+        operator_requirement_vs_device_result = await enhanced_engine.compare_with_validation(
+            operator_requirement_nodes, device_nodes, device_extractor
         )
         
         # Device vs Device comparison
@@ -685,8 +689,8 @@ ss TestEndToEndWorkflows:
         
         # 6. Export results in all formats
         results = [
-            ("cwmp_vs_subset", cwmp_vs_subset_result),
-            ("subset_vs_device", subset_vs_device_result),
+            ("cwmp_vs_operator_requirement", cwmp_vs_operator_requirement_result),
+            ("operator_requirement_vs_device", operator_requirement_vs_device_result),
             ("device_vs_device", device_vs_device_result)
         ]
         
@@ -706,11 +710,11 @@ ss TestEndToEndWorkflows:
         assert performance_summary is not None
         
         # 8. Verify all results
-        assert cwmp_vs_subset_result.summary.total_nodes_source1 == 100
-        assert cwmp_vs_subset_result.summary.total_nodes_source2 == 75
+        assert cwmp_vs_operator_requirement_result.summary.total_nodes_source1 == 100
+        assert cwmp_vs_operator_requirement_result.summary.total_nodes_source2 == 75
         
-        assert subset_vs_device_result.basic_comparison.summary.total_nodes_source1 == 75
-        assert subset_vs_device_result.basic_comparison.summary.total_nodes_source2 == 76
+        assert operator_requirement_vs_device_result.basic_comparison.summary.total_nodes_source1 == 75
+        assert operator_requirement_vs_device_result.basic_comparison.summary.total_nodes_source2 == 76
         
         assert device_vs_device_result.summary.total_nodes_source1 == 76
         assert device_vs_device_result.summary.total_nodes_source2 == 51

@@ -304,13 +304,13 @@ class EnhancedComparisonEngine(ComparisonEngine):
         super().__init__()
         self.validator = TR181Validator()
     
-    async def compare_with_validation(self, subset_nodes: List[TR181Node], device_nodes: List[TR181Node], 
+    async def compare_with_validation(self, operator_requirement_nodes: List[TR181Node], device_nodes: List[TR181Node], 
                                     device_extractor: Optional['HookBasedDeviceExtractor'] = None) -> EnhancedComparisonResult:
         """
         Enhanced comparison that includes validation and event/function testing.
         
         Args:
-            subset_nodes: TR181 nodes from subset specification
+            operator_requirement_nodes: TR181 nodes from operator requirement specification
             device_nodes: TR181 nodes from device implementation
             device_extractor: Optional device extractor for event/function testing
             
@@ -318,10 +318,10 @@ class EnhancedComparisonEngine(ComparisonEngine):
             EnhancedComparisonResult with comprehensive comparison, validation, and test results
         """
         # Perform basic comparison
-        basic_result = await self.compare(subset_nodes, device_nodes)
+        basic_result = await self.compare(operator_requirement_nodes, device_nodes)
         
         # Perform validation on common nodes
-        validation_results = await self._validate_node_implementations(subset_nodes, device_nodes)
+        validation_results = await self._validate_node_implementations(operator_requirement_nodes, device_nodes)
         
         # Test events and functions if device extractor is available
         event_test_results = []
@@ -330,7 +330,7 @@ class EnhancedComparisonEngine(ComparisonEngine):
         if device_extractor:
             event_function_tester = EventFunctionTester(device_extractor)
             event_test_results, function_test_results = await self._test_events_and_functions(
-                subset_nodes, event_function_tester, device_nodes
+                operator_requirement_nodes, event_function_tester, device_nodes
             )
         
         return EnhancedComparisonResult(
@@ -340,35 +340,35 @@ class EnhancedComparisonEngine(ComparisonEngine):
             function_test_results=function_test_results
         )
     
-    async def _validate_node_implementations(self, subset_nodes: List[TR181Node], 
+    async def _validate_node_implementations(self, operator_requirement_nodes: List[TR181Node], 
                                            device_nodes: List[TR181Node]) -> List[Tuple[str, ValidationResult]]:
-        """Validate device node implementations against subset specifications."""
+        """Validate device node implementations against operator requirement specifications."""
         validation_results = []
         device_map = self._build_node_map(device_nodes)
         
-        for subset_node in subset_nodes:
-            if subset_node.path in device_map:
-                device_node = device_map[subset_node.path]
-                validation_result = await self._validate_node_implementation(subset_node, device_node)
-                validation_results.append((subset_node.path, validation_result))
+        for operator_requirement_node in operator_requirement_nodes:
+            if operator_requirement_node.path in device_map:
+                device_node = device_map[operator_requirement_node.path]
+                validation_result = await self._validate_node_implementation(operator_requirement_node, device_node)
+                validation_results.append((operator_requirement_node.path, validation_result))
         
         return validation_results
     
-    async def _validate_node_implementation(self, subset_node: TR181Node, device_node: TR181Node) -> ValidationResult:
-        """Validate device node implementation against subset specification."""
+    async def _validate_node_implementation(self, operator_requirement_node: TR181Node, device_node: TR181Node) -> ValidationResult:
+        """Validate device node implementation against operator requirement specification."""
         result = ValidationResult()
         
         # Validate data type consistency
-        if subset_node.data_type != device_node.data_type:
-            result.add_error(f"Data type mismatch for {subset_node.path}: expected {subset_node.data_type}, got {device_node.data_type}")
+        if operator_requirement_node.data_type != device_node.data_type:
+            result.add_error(f"Data type mismatch for {operator_requirement_node.path}: expected {operator_requirement_node.data_type}, got {device_node.data_type}")
         
         # Validate access level consistency
-        if subset_node.access != device_node.access:
-            result.add_warning(f"Access level mismatch for {subset_node.path}: expected {subset_node.access.value}, got {device_node.access.value}")
+        if operator_requirement_node.access != device_node.access:
+            result.add_warning(f"Access level mismatch for {operator_requirement_node.path}: expected {operator_requirement_node.access.value}, got {device_node.access.value}")
         
-        # Validate value against subset constraints
-        if subset_node.value_range and device_node.value is not None:
-            range_validation = self.validator.validate_node(subset_node, device_node.value)
+        # Validate value against operator requirement constraints
+        if operator_requirement_node.value_range and device_node.value is not None:
+            range_validation = self.validator.validate_node(operator_requirement_node, device_node.value)
             result.merge(range_validation)
         
         # Validate data type of actual value
@@ -377,36 +377,36 @@ class EnhancedComparisonEngine(ComparisonEngine):
             result.merge(type_validation)
         
         # Validate object consistency
-        if subset_node.is_object != device_node.is_object:
-            result.add_warning(f"Object type mismatch for {subset_node.path}: expected is_object={subset_node.is_object}, got is_object={device_node.is_object}")
+        if operator_requirement_node.is_object != device_node.is_object:
+            result.add_warning(f"Object type mismatch for {operator_requirement_node.path}: expected is_object={operator_requirement_node.is_object}, got is_object={device_node.is_object}")
         
         # Validate children consistency for object nodes
-        if subset_node.is_object and subset_node.children and device_node.children:
-            subset_children = set(subset_node.children)
+        if operator_requirement_node.is_object and operator_requirement_node.children and device_node.children:
+            operator_requirement_children = set(operator_requirement_node.children)
             device_children = set(device_node.children)
             
-            missing_children = subset_children - device_children
+            missing_children = operator_requirement_children - device_children
             if missing_children:
-                result.add_error(f"Missing child nodes for {subset_node.path}: {list(missing_children)}")
+                result.add_error(f"Missing child nodes for {operator_requirement_node.path}: {list(missing_children)}")
             
-            extra_children = device_children - subset_children
+            extra_children = device_children - operator_requirement_children
             if extra_children:
-                result.add_warning(f"Extra child nodes for {subset_node.path}: {list(extra_children)}")
+                result.add_warning(f"Extra child nodes for {operator_requirement_node.path}: {list(extra_children)}")
         
         return result
     
-    async def _test_events_and_functions(self, subset_nodes: List[TR181Node], 
+    async def _test_events_and_functions(self, operator_requirement_nodes: List[TR181Node], 
                                        event_function_tester: EventFunctionTester,
                                        device_nodes: List[TR181Node]) -> Tuple[List[EventTestResult], List[FunctionTestResult]]:
-        """Test events and functions from subset nodes against device implementation."""
+        """Test events and functions from operator requirement nodes against device implementation."""
         event_test_results = []
         function_test_results = []
         
-        # Collect all events and functions from subset nodes
+        # Collect all events and functions from operator requirement nodes
         all_events = []
         all_functions = []
         
-        for node in subset_nodes:
+        for node in operator_requirement_nodes:
             if node.events:
                 all_events.extend(node.events)
             if node.functions:

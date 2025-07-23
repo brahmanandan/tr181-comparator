@@ -12,9 +12,9 @@ from unittest.mock import AsyncMock
 
 from tr181_comparator.models import TR181Node, AccessLevel, ValueRange
 from tr181_comparator.main import TR181ComparatorApp, ReportGenerator
-from tr181_comparator.config import SystemConfig, DeviceConfig, SubsetConfig, ExportConfig
+from tr181_comparator.config import SystemConfig, DeviceConfig, OperatorRequirementConfig, ExportConfig
 from tr181_comparator.comparison import ComparisonEngine, EnhancedComparisonEngine
-from tr181_comparator.extractors import SubsetManager, HookBasedDeviceExtractor
+from tr181_comparator.extractors import OperatorRequirementManager, HookBasedDeviceExtractor
 from tr181_comparator.hooks import DeviceConfig as HookDeviceConfig
 from tr181_comparator.validation import TR181Validator
 from tr181_comparator.errors import ConnectionError, ValidationError
@@ -163,8 +163,8 @@ class TestFinalSystemIntegration:
         print("✓ Requirement 1 validated: CWMP extraction successful")
     
     @pytest.mark.asyncio
-    async def test_requirement_2_custom_subset(self, tmp_path):
-        """Test Requirement 2: Define custom subset of TR181 nodes."""
+    async def test_requirement_2_custom_operator_requirement(self, tmp_path):
+        """Test Requirement 2: Define custom operator requirement of TR181 nodes."""
         # Arrange
         custom_nodes = [
             TR181Node(
@@ -187,54 +187,54 @@ class TestFinalSystemIntegration:
         ]
         
         # Act
-        subset_file = tmp_path / "custom_subset.json"
-        subset_manager = SubsetManager(str(subset_file))
-        await subset_manager.save_subset(custom_nodes)
-        loaded_nodes = await subset_manager.extract()
+        operator_requirement_file = tmp_path / "custom_operator_requirement.json"
+        operator_requirement_manager = OperatorRequirementManager(str(operator_requirement_file))
+        await operator_requirement_manager.save_operator_requirement(custom_nodes)
+        loaded_nodes = await operator_requirement_manager.extract()
         
         # Assert
         assert len(loaded_nodes) == 2
         assert any(node.is_custom for node in loaded_nodes)
         assert all(node.path.startswith("Device.") for node in loaded_nodes)
         
-        print("✓ Requirement 2 validated: Custom subset creation successful")
+        print("✓ Requirement 2 validated: Custom operator requirement creation successful")
     
     @pytest.mark.asyncio
-    async def test_requirement_3_cwmp_vs_subset_comparison(self, tmp_path):
-        """Test Requirement 3: Compare CWMP TR181 nodes against custom subset."""
+    async def test_requirement_3_cwmp_vs_operator_requirement_comparison(self, tmp_path):
+        """Test Requirement 3: Compare CWMP TR181 nodes against custom operator requirement."""
         # Arrange
         cwmp_nodes = create_test_nodes(30)
-        subset_nodes = cwmp_nodes[:20]  # Subset of CWMP nodes
-        subset_nodes.append(
+        operator_requirement_nodes = cwmp_nodes[:20]  # Operator requirement nodes from CWMP nodes
+        operator_requirement_nodes.append(
             TR181Node(
-                path="Device.Custom.OnlyInSubset",
-                name="OnlyInSubset",
+                path="Device.Custom.OnlyInOperatorRequirement",
+                name="OnlyInOperatorRequirement",
                 data_type="string",
                 access=AccessLevel.READ_WRITE,
-                value="subset_only",
+                value="operator_requirement_only",
                 is_custom=True
             )
         )
         
         # Act
         comparison_engine = ComparisonEngine()
-        result = await comparison_engine.compare(cwmp_nodes, subset_nodes)
+        result = await comparison_engine.compare(cwmp_nodes, operator_requirement_nodes)
         
         # Assert
         assert result.summary.total_nodes_source1 == 30  # CWMP nodes
-        assert result.summary.total_nodes_source2 == 21  # Subset nodes
+        assert result.summary.total_nodes_source2 == 21  # Operator requirement nodes
         assert len(result.only_in_source1) == 10  # Nodes only in CWMP
-        assert len(result.only_in_source2) == 1   # Custom node only in subset
+        assert len(result.only_in_source2) == 1   # Custom node only in operator requirement
         assert result.summary.common_nodes == 20  # Overlapping nodes
         
-        print("✓ Requirement 3 validated: CWMP vs subset comparison successful")
+        print("✓ Requirement 3 validated: CWMP vs operator requirement comparison successful")
     
     @pytest.mark.asyncio
-    async def test_requirement_4_subset_vs_device_comparison(self, tmp_path):
-        """Test Requirement 4: Compare custom subset against device implementation."""
+    async def test_requirement_4_operator_requirement_vs_device_comparison(self, tmp_path):
+        """Test Requirement 4: Compare custom operator requirement against device implementation."""
         # Arrange
-        subset_nodes = create_test_nodes(20)
-        device_nodes = subset_nodes[:15]  # Missing 5 nodes
+        operator_requirement_nodes = create_test_nodes(20)
+        device_nodes = operator_requirement_nodes[:15]  # Missing 5 nodes
         device_nodes.append(
             TR181Node(
                 path="Device.Implementation.ExtraParameter",
@@ -259,15 +259,15 @@ class TestFinalSystemIntegration:
         
         # Act
         enhanced_engine = EnhancedComparisonEngine()
-        result = await enhanced_engine.compare_with_validation(subset_nodes, device_nodes, device_extractor)
+        result = await enhanced_engine.compare_with_validation(operator_requirement_nodes, device_nodes, device_extractor)
         
         # Assert
-        assert result.basic_comparison.summary.total_nodes_source1 == 20  # Subset
+        assert result.basic_comparison.summary.total_nodes_source1 == 20  # Operator requirement
         assert result.basic_comparison.summary.total_nodes_source2 == 16  # Device
         assert len(result.basic_comparison.only_in_source1) == 5   # Missing in device
         assert len(result.basic_comparison.only_in_source2) == 1   # Extra in device
         
-        print("✓ Requirement 4 validated: Subset vs device comparison successful")
+        print("✓ Requirement 4 validated: Operator requirement vs device comparison successful")
     
     @pytest.mark.asyncio
     async def test_requirement_5_device_vs_device_comparison(self):
@@ -442,12 +442,12 @@ class TestFinalSystemIntegration:
                     retry_count=3
                 )
             ],
-            subsets=[
-                SubsetConfig(
-                    name="test_subset",
-                    file_path=str(tmp_path / "test_subset.json"),
+            operator_requirements=[
+                OperatorRequirementConfig(
+                    name="test_operator_requirement",
+                    file_path=str(tmp_path / "test_operator_requirement.json"),
                     version="1.0.0",
-                    description="Test subset"
+                    description="Test operator requirement"
                 )
             ],
             export_settings=ExportConfig(
@@ -471,12 +471,12 @@ class TestFinalSystemIntegration:
         
         # Create test data
         cwmp_nodes = create_test_nodes(50)
-        subset_nodes = cwmp_nodes[:30]
+        operator_requirement_nodes = cwmp_nodes[:30]
         device_nodes = cwmp_nodes[10:40]
         
-        # Save subset
-        subset_manager = SubsetManager(str(tmp_path / "test_subset.json"))
-        await subset_manager.save_subset(subset_nodes)
+        # Save operator requirement
+        operator_requirement_manager = OperatorRequirementManager(str(tmp_path / "test_operator_requirement.json"))
+        await operator_requirement_manager.save_operator_requirement(operator_requirement_nodes)
         
         # Create application
         app = TR181ComparatorApp(system_config)
@@ -484,11 +484,11 @@ class TestFinalSystemIntegration:
         # Perform comparisons
         comparison_engine = ComparisonEngine()
         
-        # CWMP vs Subset
-        cwmp_vs_subset_result = await comparison_engine.compare(cwmp_nodes, subset_nodes)
+        # CWMP vs Operator Requirement
+        cwmp_vs_operator_requirement_result = await comparison_engine.compare(cwmp_nodes, operator_requirement_nodes)
         
-        # Subset vs Device (simulated)
-        subset_vs_device_result = await comparison_engine.compare(subset_nodes, device_nodes)
+        # Operator Requirement vs Device (simulated)
+        operator_requirement_vs_device_result = await comparison_engine.compare(operator_requirement_nodes, device_nodes)
         
         # Device vs Device
         device2_nodes = device_nodes[:20]
@@ -496,8 +496,8 @@ class TestFinalSystemIntegration:
         
         # Export results
         results = [
-            ("cwmp_vs_subset", cwmp_vs_subset_result),
-            ("subset_vs_device", subset_vs_device_result),
+            ("cwmp_vs_operator_requirement", cwmp_vs_operator_requirement_result),
+            ("operator_requirement_vs_device", operator_requirement_vs_device_result),
             ("device_vs_device", device_vs_device_result)
         ]
         
@@ -512,11 +512,11 @@ class TestFinalSystemIntegration:
             assert (tmp_path / f"{result_name}.txt").exists()
         
         # Verify all results
-        assert cwmp_vs_subset_result.summary.total_nodes_source1 == 50
-        assert cwmp_vs_subset_result.summary.total_nodes_source2 == 30
+        assert cwmp_vs_operator_requirement_result.summary.total_nodes_source1 == 50
+        assert cwmp_vs_operator_requirement_result.summary.total_nodes_source2 == 30
         
-        assert subset_vs_device_result.summary.total_nodes_source1 == 30
-        assert subset_vs_device_result.summary.total_nodes_source2 == 30
+        assert operator_requirement_vs_device_result.summary.total_nodes_source1 == 30
+        assert operator_requirement_vs_device_result.summary.total_nodes_source2 == 30
         
         assert device_vs_device_result.summary.total_nodes_source1 == 30
         assert device_vs_device_result.summary.total_nodes_source2 == 20

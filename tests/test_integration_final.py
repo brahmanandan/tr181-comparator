@@ -7,7 +7,7 @@ from typing import List, Dict, Any
 
 from tr181_comparator.models import TR181Node, AccessLevel, ValueRange
 from tr181_comparator.comparison import ComparisonEngine
-from tr181_comparator.extractors import SubsetManager
+from tr181_comparator.extractors import OperatorRequirementManager
 from tr181_comparator.errors import ConnectionError
 
 
@@ -89,22 +89,22 @@ class TestComprehensiveIntegration:
     """Comprehensive integration tests."""
     
     @pytest.mark.asyncio
-    async def test_subset_comparison_scenario(self, tmp_path):
-        """Test subset vs subset comparison scenario."""
+    async def test_operator_requirement_comparison_scenario(self, tmp_path):
+        """Test operator requirement vs operator requirement comparison scenario."""
         # Generate test data
         source_nodes = generate_test_nodes(30)
         target_nodes = create_modified_nodes(source_nodes, 0.2)
         
-        # Create subset files
-        source_file = tmp_path / "source_subset.json"
-        target_file = tmp_path / "target_subset.json"
+        # Create operator requirement files
+        source_file = tmp_path / "source_operator_requirement.json"
+        target_file = tmp_path / "target_operator_requirement.json"
         
-        source_manager = SubsetManager(str(source_file))
-        target_manager = SubsetManager(str(target_file))
+        source_manager = OperatorRequirementManager(str(source_file))
+        target_manager = OperatorRequirementManager(str(target_file))
         
-        # Save subsets
-        await source_manager.save_subset(source_nodes)
-        await target_manager.save_subset(target_nodes)
+        # Save operator requirements
+        await source_manager.save_operator_requirement(source_nodes)
+        await target_manager.save_operator_requirement(target_nodes)
         
         # Extract and compare
         source_extracted = await source_manager.extract()
@@ -197,13 +197,13 @@ class TestComprehensiveIntegration:
         print(f"Concurrent operations completed in {concurrent_time:.3f} seconds")
     
     @pytest.mark.asyncio
-    async def test_subset_validation_scenario(self, tmp_path):
-        """Test subset validation and error handling."""
-        # Create valid subset
+    async def test_operator_requirement_validation_scenario(self, tmp_path):
+        """Test operator requirement validation and error handling."""
+        # Create valid operator requirement
         valid_nodes = generate_test_nodes(20)
-        valid_file = tmp_path / "valid_subset.json"
-        valid_manager = SubsetManager(str(valid_file))
-        await valid_manager.save_subset(valid_nodes)
+        valid_file = tmp_path / "valid_operator_requirement.json"
+        valid_manager = OperatorRequirementManager(str(valid_file))
+        await valid_manager.save_operator_requirement(valid_nodes)
         
         # Test extraction
         extracted = await valid_manager.extract()
@@ -213,7 +213,7 @@ class TestComprehensiveIntegration:
         validation_result = await valid_manager.validate()
         assert validation_result.is_valid
         
-        print("Subset validation completed successfully")
+        print("Operator requirement validation completed successfully")
     
     def test_node_data_integrity(self):
         """Test TR181 node data integrity."""

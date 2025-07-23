@@ -5,11 +5,12 @@ import asyncio
 import json
 import logging
 import sys
+import warnings
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
-from .config import ConfigurationManager, SystemConfig, DeviceConfig, SubsetConfig
+from .config import ConfigurationManager, SystemConfig, DeviceConfig, OperatorRequirementConfig
 from .main import TR181ComparatorApp
 from .models import TR181Node
 from .errors import TR181Error, report_error
@@ -17,6 +18,7 @@ from .logging import (
     initialize_logging, LogLevel, get_logger, LogCategory,
     get_performance_summary
 )
+from .deprecation import deprecated, deprecated_argument, DEPRECATED_CLI_COMMANDS, DEPRECATED_CLI_ARGUMENTS
 
 
 class CLIProgressReporter:
@@ -85,24 +87,31 @@ class TR181ComparatorCLI:
     def create_parser(self) -> argparse.ArgumentParser:
         """Create and configure the argument parser."""
         parser = argparse.ArgumentParser(
-            description="TR181 Node Comparator - Compare TR181 data model implementations",
+            description="TR181 Node Comparator - Compare TR181 data model implementations against operator requirement definitions",
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog="""
 Examples:
-  # Compare CWMP source against subset
-  tr181-compare cwmp-vs-subset --cwmp-config cwmp.json --subset-file subset.json --output report.json
+  # Compare CWMP source against operator requirement definitions
+  tr181-compare cwmp-vs-operator-requirement --cwmp-config cwmp.json --operator-requirement-file requirement.json --output report.json
   
-  # Compare subset against device
-  tr181-compare subset-vs-device --subset-file subset.json --device-config device.json --output report.json
+  # Compare operator requirement definitions against device implementation
+  tr181-compare operator-requirement-vs-device --operator-requirement-file requirement.json --device-config device.json --output report.json
   
-  # Compare two devices
+  # Compare two device implementations
   tr181-compare device-vs-device --device1-config dev1.json --device2-config dev2.json --output report.json
   
   # List available configurations
   tr181-compare list-configs
   
-  # Validate a subset file
-  tr181-compare validate-subset --subset-file subset.json
+  # Validate an operator requirement definition file
+  tr181-compare validate-operator-requirement --operator-requirement-file requirement.json
+  
+  # Extract TR181 nodes from operator requirement definitions
+  tr181-compare extract --source-type operator-requirement --source-config requirement.json --output nodes.json
+  
+  # Deprecated commands (still supported with warnings):
+  tr181-compare subset-vs-device --operator-requirement-file requirement.json --device-config device.json --output report.json
+  tr181-compare validate-subset --operator-requirement-file requirement.json
             """
         )
         
@@ -119,34 +128,54 @@ Examples:
         # Subcommands
         subparsers = parser.add_subparsers(dest='command', help='Available commands')
         
-        # CWMP vs Subset comparison
-        cwmp_subset_parser = subparsers.add_parser('cwmp-vs-subset',
-                                                  help='Compare CWMP source against subset')
-        cwmp_subset_parser.add_argument('--cwmp-config', required=True,
+        # CWMP vs Operator Requirement comparison
+        cwmp_operator_requirement_parser = subparsers.add_parser('cwmp-vs-operator-requirement',
+                                                  help='Compare CWMP source against operator requirement definitions')
+        cwmp_operator_requirement_parser.add_argument('--cwmp-config', required=True,
                                       help='Path to CWMP configuration file')
-        cwmp_subset_parser.add_argument('--subset-file', required=True,
-                                      help='Path to subset definition file')
-        cwmp_subset_parser.add_argument('--output', '-o', required=True,
+        cwmp_operator_requirement_parser.add_argument('--operator-requirement-file', required=True,
+                                      help='Path to operator requirement definition file')
+        cwmp_operator_requirement_parser.add_argument('--output', '-o', required=True,
                                       help='Output file path for comparison results')
-        cwmp_subset_parser.add_argument('--format', choices=['json', 'xml', 'text'],
-                                      default='json', help='Output format')
-        cwmp_subset_parser.add_argument('--include-metadata', action='store_true',
-                                      help='Include metadata in output')
+        cwmp_operator_requirement_parser.add_argument('--format', choices=['json', 'xml', 'text'],
+                                      default='json', help='Output format (json, xml, or text)')
+        cwmp_operator_requirement_parser.add_argument('--include-metadata', action='store_true',
+                                      help='Include metadata and additional details in output')
         
-        # Subset vs Device comparison
-        subset_device_parser = subparsers.add_parser('subset-vs-device',
-                                                   help='Compare subset against device implementation')
-        subset_device_parser.add_argument('--subset-file', required=True,
-                                        help='Path to subset definition file')
-        subset_device_parser.add_argument('--device-config', required=True,
+        # Operator Requirement vs Device comparison
+        operator_requirement_device_parser = subparsers.add_parser('operator-requirement-vs-device',
+                                                   help='Compare operator requirement against device implementation')
+        operator_requirement_device_parser.add_argument('--operator-requirement-file', required=True,
+                                        help='Path to operator requirement definition file')
+        operator_requirement_device_parser.add_argument('--device-config', required=True,
                                         help='Path to device configuration file')
-        subset_device_parser.add_argument('--output', '-o', required=True,
+        operator_requirement_device_parser.add_argument('--output', '-o', required=True,
                                         help='Output file path for comparison results')
-        subset_device_parser.add_argument('--format', choices=['json', 'xml', 'text'],
+        operator_requirement_device_parser.add_argument('--format', choices=['json', 'xml', 'text'],
                                         default='json', help='Output format')
-        subset_device_parser.add_argument('--include-validation', action='store_true',
+        operator_requirement_device_parser.add_argument('--include-validation', action='store_true',
                                         help='Include validation and event/function testing')
-        subset_device_parser.add_argument('--include-metadata', action='store_true',
+        operator_requirement_device_parser.add_argument('--include-metadata', action='store_true',
+                                        help='Include metadata in output')
+        
+        # Deprecated alias for backward compatibility
+        deprecated_operator_requirement_device_parser = subparsers.add_parser('subset-vs-device',
+                                                   help='[DEPRECATED] Use operator-requirement-vs-device instead')
+        # Create mutually exclusive group for the file argument
+        deprecated_operator_requirement_file_group = deprecated_operator_requirement_device_parser.add_mutually_exclusive_group(required=True)
+        deprecated_operator_requirement_file_group.add_argument('--operator-requirement-file',
+                                        help='Path to operator requirement definition file')
+        deprecated_operator_requirement_file_group.add_argument('--subset-file',
+                                        help='[DEPRECATED] Path to subset definition file (use --operator-requirement-file)')
+        deprecated_operator_requirement_device_parser.add_argument('--device-config', required=True,
+                                        help='Path to device configuration file')
+        deprecated_operator_requirement_device_parser.add_argument('--output', '-o', required=True,
+                                        help='Output file path for comparison results')
+        deprecated_operator_requirement_device_parser.add_argument('--format', choices=['json', 'xml', 'text'],
+                                        default='json', help='Output format')
+        deprecated_operator_requirement_device_parser.add_argument('--include-validation', action='store_true',
+                                        help='Include validation and event/function testing')
+        deprecated_operator_requirement_device_parser.add_argument('--include-metadata', action='store_true',
                                         help='Include metadata in output')
         
         # Device vs Device comparison
@@ -167,10 +196,20 @@ Examples:
         list_configs_parser = subparsers.add_parser('list-configs',
                                                   help='List available configurations')
         
-        validate_subset_parser = subparsers.add_parser('validate-subset',
-                                                     help='Validate a subset definition file')
-        validate_subset_parser.add_argument('--subset-file', required=True,
-                                          help='Path to subset definition file')
+        validate_operator_requirement_parser = subparsers.add_parser('validate-operator-requirement',
+                                                     help='Validate an operator requirement definition file')
+        validate_operator_requirement_parser.add_argument('--operator-requirement-file', required=True,
+                                          help='Path to operator requirement definition file')
+        
+        # Deprecated alias for backward compatibility
+        deprecated_validate_operator_requirement_parser = subparsers.add_parser('validate-subset',
+                                                     help='[DEPRECATED] Use validate-operator-requirement instead')
+        # Create mutually exclusive group for the file argument
+        deprecated_validate_operator_requirement_file_group = deprecated_validate_operator_requirement_parser.add_mutually_exclusive_group(required=True)
+        deprecated_validate_operator_requirement_file_group.add_argument('--operator-requirement-file',
+                                          help='Path to operator requirement definition file')
+        deprecated_validate_operator_requirement_file_group.add_argument('--subset-file',
+                                          help='[DEPRECATED] Path to subset definition file (use --operator-requirement-file)')
         
         create_config_parser = subparsers.add_parser('create-config',
                                                    help='Create a default configuration file')
@@ -180,7 +219,7 @@ Examples:
         # Extract command for standalone extraction
         extract_parser = subparsers.add_parser('extract',
                                              help='Extract TR181 nodes from a source')
-        extract_parser.add_argument('--source-type', choices=['cwmp', 'device', 'subset'],
+        extract_parser.add_argument('--source-type', choices=['cwmp', 'device', 'operator-requirement'],
                                   required=True, help='Type of source to extract from')
         extract_parser.add_argument('--source-config', required=True,
                                   help='Path to source configuration file')
@@ -267,17 +306,38 @@ Examples:
                 }
             )
             
+            # Check for deprecated commands
+            if parsed_args.command in DEPRECATED_CLI_COMMANDS:
+                new_command = DEPRECATED_CLI_COMMANDS[parsed_args.command]
+                self.progress_reporter.show_warning(
+                    f"Command '{parsed_args.command}' is deprecated. Use '{new_command}' instead."
+                )
+                
+                # Log deprecation warning
+                self.logger.warning(
+                    "Deprecated CLI command used",
+                    LogCategory.AUDIT,
+                    context={
+                        'deprecated_command': parsed_args.command,
+                        'replacement': new_command
+                    }
+                )
+            
             # Execute command
-            if parsed_args.command == 'cwmp-vs-subset':
-                return await self._handle_cwmp_vs_subset(parsed_args)
+            if parsed_args.command == 'cwmp-vs-operator-requirement':
+                return await self._handle_cwmp_vs_operator_requirement(parsed_args)
+            elif parsed_args.command == 'operator-requirement-vs-device':
+                return await self._handle_operator_requirement_vs_device(parsed_args)
             elif parsed_args.command == 'subset-vs-device':
-                return await self._handle_subset_vs_device(parsed_args)
+                return await self._handle_operator_requirement_vs_device_deprecated(parsed_args)
             elif parsed_args.command == 'device-vs-device':
                 return await self._handle_device_vs_device(parsed_args)
             elif parsed_args.command == 'list-configs':
                 return await self._handle_list_configs(parsed_args)
+            elif parsed_args.command == 'validate-operator-requirement':
+                return await self._handle_validate_operator_requirement(parsed_args)
             elif parsed_args.command == 'validate-subset':
-                return await self._handle_validate_subset(parsed_args)
+                return await self._handle_validate_operator_requirement_deprecated(parsed_args)
             elif parsed_args.command == 'create-config':
                 return await self._handle_create_config(parsed_args)
             elif parsed_args.command == 'extract':
@@ -317,12 +377,12 @@ Examples:
             except Exception:
                 pass  # Don't fail on performance summary errors
     
-    async def _handle_cwmp_vs_subset(self, args) -> int:
-        """Handle CWMP vs subset comparison command."""
+    async def _handle_cwmp_vs_operator_requirement(self, args) -> int:
+        """Handle CWMP vs operator requirement comparison command."""
         try:
-            result = await self.app.compare_cwmp_vs_subset(
+            result = await self.app.compare_cwmp_vs_operator_requirement(
                 cwmp_config_path=args.cwmp_config,
-                subset_file_path=args.subset_file
+                operator_requirement_file_path=args.operator_requirement_file
             )
             
             await self._save_comparison_result(
@@ -333,14 +393,14 @@ Examples:
             return 0
         
         except Exception as e:
-            self.progress_reporter.show_error(f"CWMP vs subset comparison failed: {e}")
+            self.progress_reporter.show_error(f"CWMP vs operator requirement comparison failed: {e}")
             return 1
     
-    async def _handle_subset_vs_device(self, args) -> int:
-        """Handle subset vs device comparison command."""
+    async def _handle_operator_requirement_vs_device(self, args) -> int:
+        """Handle operator requirement vs device comparison command."""
         try:
-            result = await self.app.compare_subset_vs_device(
-                subset_file_path=args.subset_file,
+            result = await self.app.compare_operator_requirement_vs_device(
+                operator_requirement_file_path=args.operator_requirement_file,
                 device_config_path=args.device_config,
                 include_validation=args.include_validation
             )
@@ -353,7 +413,58 @@ Examples:
             return 0
         
         except Exception as e:
-            self.progress_reporter.show_error(f"Subset vs device comparison failed: {e}")
+            self.progress_reporter.show_error(f"Operator requirement vs device comparison failed: {e}")
+            return 1
+    
+    async def _handle_operator_requirement_vs_device_deprecated(self, args) -> int:
+        """Handle deprecated operator requirement vs device comparison command."""
+        try:
+            # Show command deprecation warning
+            self.logger.warning(
+                "Deprecated CLI command used",
+                LogCategory.AUDIT,
+                context={
+                    'deprecated_command': 'subset-vs-device',
+                    'replacement': 'operator-requirement-vs-device'
+                }
+            )
+            
+            # Determine which argument was provided
+            operator_requirement_file = getattr(args, 'operator_requirement_file', None) or getattr(args, 'subset_file', None)
+            
+            if not operator_requirement_file:
+                self.progress_reporter.show_error("Either --operator-requirement-file or --subset-file must be provided")
+                return 1
+            
+            # Show deprecation warning if --subset-file was used
+            if hasattr(args, 'subset_file') and args.subset_file:
+                self.logger.warning(
+                    "Deprecated CLI argument used",
+                    LogCategory.AUDIT,
+                    context={
+                        'deprecated_argument': 'subset-file',
+                        'replacement': 'operator-requirement-file'
+                    }
+                )
+                self.progress_reporter.show_warning(
+                    "Argument '--subset-file' is deprecated. Use '--operator-requirement-file' instead."
+                )
+            
+            result = await self.app.compare_operator_requirement_vs_device(
+                operator_requirement_file_path=operator_requirement_file,
+                device_config_path=args.device_config,
+                include_validation=args.include_validation
+            )
+            
+            await self._save_comparison_result(
+                result, args.output, args.format, args.include_metadata
+            )
+            
+            self._print_comparison_summary(result)
+            return 0
+        
+        except Exception as e:
+            self.progress_reporter.show_error(f"Operator requirement vs device comparison failed: {e}")
             return 1
     
     async def _handle_device_vs_device(self, args) -> int:
@@ -391,9 +502,9 @@ Examples:
                 name = device.name or f"Device {i+1}"
                 print(f"  {i+1}. {name} ({device.type}) - {device.endpoint}")
             
-            print(f"\nSubsets ({len(config.subsets)}):")
-            for i, subset in enumerate(config.subsets):
-                print(f"  {i+1}. {subset.name} - {subset.file_path}")
+            print(f"\nOperator Requirements ({len(config.operator_requirements)}):")
+            for i, operator_requirement in enumerate(config.operator_requirements):
+                print(f"  {i+1}. {operator_requirement.name} - {operator_requirement.file_path}")
             
             print(f"\nHook Configurations ({len(config.hook_configs)}):")
             for hook_name, hook_config in config.hook_configs.items():
@@ -405,22 +516,71 @@ Examples:
             self.progress_reporter.show_error(f"Failed to list configurations: {e}")
             return 1
     
-    async def _handle_validate_subset(self, args) -> int:
-        """Handle validate subset command."""
+    async def _handle_validate_operator_requirement(self, args) -> int:
+        """Handle validate operator requirement command."""
         try:
-            is_valid, errors = await self.app.validate_subset_file(args.subset_file)
+            is_valid, errors = await self.app.validate_operator_requirement_file(args.operator_requirement_file)
             
             if is_valid:
-                print(f"Subset file '{args.subset_file}' is valid")
+                print(f"Operator requirement file '{args.operator_requirement_file}' is valid")
                 return 0
             else:
-                print(f"Subset file '{args.subset_file}' has validation errors:")
+                print(f"Operator requirement file '{args.operator_requirement_file}' has validation errors:")
                 for error in errors:
                     print(f"  - {error}")
                 return 1
         
         except Exception as e:
-            self.progress_reporter.show_error(f"Failed to validate subset: {e}")
+            self.progress_reporter.show_error(f"Failed to validate operator requirement: {e}")
+            return 1
+    
+    async def _handle_validate_operator_requirement_deprecated(self, args) -> int:
+        """Handle deprecated validate operator requirement command."""
+        try:
+            # Show command deprecation warning
+            self.logger.warning(
+                "Deprecated CLI command used",
+                LogCategory.AUDIT,
+                context={
+                    'deprecated_command': 'validate-subset',
+                    'replacement': 'validate-operator-requirement'
+                }
+            )
+            
+            # Determine which argument was provided
+            operator_requirement_file = getattr(args, 'operator_requirement_file', None) or getattr(args, 'subset_file', None)
+            
+            if not operator_requirement_file:
+                self.progress_reporter.show_error("Either --operator-requirement-file or --subset-file must be provided")
+                return 1
+            
+            # Show deprecation warning if --subset-file was used
+            if hasattr(args, 'subset_file') and args.subset_file:
+                self.logger.warning(
+                    "Deprecated CLI argument used",
+                    LogCategory.AUDIT,
+                    context={
+                        'deprecated_argument': 'subset-file',
+                        'replacement': 'operator-requirement-file'
+                    }
+                )
+                self.progress_reporter.show_warning(
+                    "Argument '--subset-file' is deprecated. Use '--operator-requirement-file' instead."
+                )
+            
+            is_valid, errors = await self.app.validate_operator_requirement_file(operator_requirement_file)
+            
+            if is_valid:
+                print(f"Operator requirement file '{operator_requirement_file}' is valid")
+                return 0
+            else:
+                print(f"Operator requirement file '{operator_requirement_file}' has validation errors:")
+                for error in errors:
+                    print(f"  - {error}")
+                return 1
+        
+        except Exception as e:
+            self.progress_reporter.show_error(f"Failed to validate operator requirement: {e}")
             return 1
     
     async def _handle_create_config(self, args) -> int:

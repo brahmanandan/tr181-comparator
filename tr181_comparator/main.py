@@ -6,11 +6,11 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple, Union
 from datetime import datetime
 
-from .config import SystemConfig, DeviceConfig, SubsetConfig
+from .config import SystemConfig, DeviceConfig, OperatorRequirementConfig
 from .models import TR181Node, ComparisonResult
 from .comparison import ComparisonEngine, EnhancedComparisonEngine, EnhancedComparisonResult
 from .extractors import (
-    CWMPExtractor, HookBasedDeviceExtractor, SubsetManager, 
+    CWMPExtractor, HookBasedDeviceExtractor, OperatorRequirementManager, 
     NodeExtractor, ValidationResult
 )
 from .hooks import DeviceHookFactory, DeviceConfig as HookDeviceConfig, HookType
@@ -24,6 +24,7 @@ from .logging import (
     get_logger, performance_monitor, LogCategory, 
     initialize_logging, LogLevel
 )
+from .deprecation import deprecated, deprecated_argument
 
 
 class ReportGenerator:
@@ -268,23 +269,23 @@ class TR181ComparatorApp:
             self.progress_reporter.show_error(message)
         self.logger.error(message)
     
-    @performance_monitor("compare_cwmp_vs_subset", "main")
-    async def compare_cwmp_vs_subset(self, cwmp_config_path: str, subset_file_path: str) -> ComparisonResult:
-        """Compare CWMP source against subset definition."""
-        correlation_id = f"cwmp_subset_{int(datetime.now().timestamp())}"
+    @performance_monitor("compare_cwmp_vs_operator_requirement", "main")
+    async def compare_cwmp_vs_operator_requirement(self, cwmp_config_path: str, operator_requirement_file_path: str) -> ComparisonResult:
+        """Compare CWMP source against operator requirement definition."""
+        correlation_id = f"cwmp_operator_requirement_{int(datetime.now().timestamp())}"
         
         self.logger.info(
-            "Starting CWMP vs Subset comparison",
+            "Starting CWMP vs Operator Requirement comparison",
             LogCategory.COMPARISON,
             context={
                 'cwmp_config_path': cwmp_config_path,
-                'subset_file_path': subset_file_path
+                'operator_requirement_file_path': operator_requirement_file_path
             },
             correlation_id=correlation_id
         )
         
         if self.progress_reporter:
-            self.progress_reporter.start_operation("CWMP vs Subset Comparison", 4)
+            self.progress_reporter.start_operation("CWMP vs Operator Requirement Comparison", 4)
         
         try:
             # Load CWMP configuration
@@ -302,54 +303,54 @@ class TR181ComparatorApp:
             )
             self._report_info(f"Extracted {len(cwmp_nodes)} nodes from CWMP source")
             
-            # Load subset nodes
-            self._report_progress("Loading subset definition", 3)
-            subset_manager = SubsetManager(subset_file_path)
-            subset_nodes = await subset_manager.extract()
+            # Load operator requirement nodes
+            self._report_progress("Loading operator requirement definition", 3)
+            operator_requirement_manager = OperatorRequirementManager(operator_requirement_file_path)
+            operator_requirement_nodes = await operator_requirement_manager.extract()
             
             self.logger.log_extraction(
-                f"Loaded {len(subset_nodes)} nodes from subset",
-                "subset", subset_file_path, len(subset_nodes), True, correlation_id
+                f"Loaded {len(operator_requirement_nodes)} nodes from operator requirement",
+                "operator_requirement", operator_requirement_file_path, len(operator_requirement_nodes), True, correlation_id
             )
-            self._report_info(f"Loaded {len(subset_nodes)} nodes from subset")
+            self._report_info(f"Loaded {len(operator_requirement_nodes)} nodes from operator requirement")
             
             # Perform comparison
             self._report_progress("Performing comparison", 4)
-            result = await self.comparison_engine.compare(cwmp_nodes, subset_nodes)
+            result = await self.comparison_engine.compare(cwmp_nodes, operator_requirement_nodes)
             
             self.logger.log_comparison(
-                "CWMP vs Subset comparison completed successfully",
-                "cwmp", "subset", result.summary.differences_count, True, correlation_id
+                "CWMP vs Operator Requirement comparison completed successfully",
+                "cwmp", "operator_requirement", result.summary.differences_count, True, correlation_id
             )
             
             if self.progress_reporter:
-                self.progress_reporter.complete_operation("CWMP vs Subset Comparison")
+                self.progress_reporter.complete_operation("CWMP vs Operator Requirement Comparison")
             
             return result
         
         except Exception as e:
-            error_msg = f"CWMP vs subset comparison failed: {e}"
+            error_msg = f"CWMP vs operator requirement comparison failed: {e}"
             self.logger.log_comparison(
-                error_msg, "cwmp", "subset", 0, False, correlation_id
+                error_msg, "cwmp", "operator_requirement", 0, False, correlation_id
             )
             self._report_error(error_msg)
             if self.progress_reporter:
-                self.progress_reporter.complete_operation("CWMP vs Subset Comparison", False)
+                self.progress_reporter.complete_operation("CWMP vs Operator Requirement Comparison", False)
             raise TR181Error(error_msg, ErrorCategory.CONNECTION) from e
     
-    @performance_monitor("compare_subset_vs_device", "main")
-    async def compare_subset_vs_device(self, subset_file_path: str, device_config_path: str, 
+    @performance_monitor("compare_operator_requirement_vs_device", "main")
+    async def compare_operator_requirement_vs_device(self, operator_requirement_file_path: str, device_config_path: str, 
                                      include_validation: bool = False) -> Union[ComparisonResult, EnhancedComparisonResult]:
-        """Compare subset against device implementation."""
-        correlation_id = f"subset_device_{int(datetime.now().timestamp())}"
-        operation_name = "Subset vs Device Comparison"
+        """Compare operator requirement against device implementation."""
+        correlation_id = f"operator_requirement_device_{int(datetime.now().timestamp())}"
+        operation_name = "Operator Requirement vs Device Comparison"
         total_steps = 5 if include_validation else 4
         
         self.logger.info(
             f"Starting {operation_name}",
             LogCategory.COMPARISON,
             context={
-                'subset_file_path': subset_file_path,
+                'operator_requirement_file_path': operator_requirement_file_path,
                 'device_config_path': device_config_path,
                 'include_validation': include_validation
             },
@@ -360,16 +361,16 @@ class TR181ComparatorApp:
             self.progress_reporter.start_operation(operation_name, total_steps)
         
         try:
-            # Load subset nodes
-            self._report_progress("Loading subset definition", 1)
-            subset_manager = SubsetManager(subset_file_path)
-            subset_nodes = await subset_manager.extract()
+            # Load operator requirement nodes
+            self._report_progress("Loading operator requirement definition", 1)
+            operator_requirement_manager = OperatorRequirementManager(operator_requirement_file_path)
+            operator_requirement_nodes = await operator_requirement_manager.extract()
             
             self.logger.log_extraction(
-                f"Loaded {len(subset_nodes)} nodes from subset",
-                "subset", subset_file_path, len(subset_nodes), True, correlation_id
+                f"Loaded {len(operator_requirement_nodes)} nodes from operator requirement",
+                "operator_requirement", operator_requirement_file_path, len(operator_requirement_nodes), True, correlation_id
             )
-            self._report_info(f"Loaded {len(subset_nodes)} nodes from subset")
+            self._report_info(f"Loaded {len(operator_requirement_nodes)} nodes from operator requirement")
             
             # Load device configuration
             self._report_progress("Loading device configuration", 2)
@@ -395,7 +396,7 @@ class TR181ComparatorApp:
             if include_validation:
                 self._report_progress("Performing enhanced comparison with validation", 4)
                 result = await self.enhanced_comparison_engine.compare_with_validation(
-                    subset_nodes, device_nodes, device_extractor
+                    operator_requirement_nodes, device_nodes, device_extractor
                 )
                 self._report_progress("Generating validation report", 5)
                 
@@ -404,18 +405,18 @@ class TR181ComparatorApp:
                     summary = result.get_summary()
                     self.logger.log_validation(
                         "Enhanced comparison with validation completed",
-                        "subset_vs_device",
+                        "operator_requirement_vs_device",
                         summary.get('validation', {}).get('nodes_with_errors', 0),
                         summary.get('validation', {}).get('total_warnings', 0),
                         True, correlation_id
                     )
             else:
                 self._report_progress("Performing basic comparison", 4)
-                result = await self.comparison_engine.compare(subset_nodes, device_nodes)
+                result = await self.comparison_engine.compare(operator_requirement_nodes, device_nodes)
             
             self.logger.log_comparison(
                 f"{operation_name} completed successfully",
-                "subset", "device", 
+                "operator_requirement", "device", 
                 result.summary.differences_count if hasattr(result, 'summary') else 
                 result.basic_comparison.summary.differences_count,
                 True, correlation_id
@@ -427,9 +428,9 @@ class TR181ComparatorApp:
             return result
         
         except Exception as e:
-            error_msg = f"Subset vs device comparison failed: {e}"
+            error_msg = f"Operator requirement vs device comparison failed: {e}"
             self.logger.log_comparison(
-                error_msg, "subset", "device", 0, False, correlation_id
+                error_msg, "operator_requirement", "device", 0, False, correlation_id
             )
             self._report_error(error_msg)
             if self.progress_reporter:
@@ -527,8 +528,8 @@ class TR181ComparatorApp:
             elif source_type == 'device':
                 config = await self._load_device_config(source_config_path)
                 extractor = await self._create_device_extractor(config)
-            elif source_type == 'subset':
-                extractor = SubsetManager(source_config_path)
+            elif source_type == 'operator_requirement':
+                extractor = OperatorRequirementManager(source_config_path)
             else:
                 raise ValueError(f"Unsupported source type: {source_type}")
             
@@ -547,20 +548,25 @@ class TR181ComparatorApp:
                 self.progress_reporter.complete_operation(f"Extracting {source_type} nodes", False)
             raise TR181Error(error_msg, ErrorCategory.DATA_FORMAT) from e
     
-    async def validate_subset_file(self, subset_file_path: str) -> Tuple[bool, List[str]]:
-        """Validate a subset definition file."""
+    async def validate_operator_requirement_file(self, operator_requirement_file_path: str) -> Tuple[bool, List[str]]:
+        """Validate an operator requirement definition file."""
         try:
-            subset_manager = SubsetManager(subset_file_path)
-            is_valid = await subset_manager.validate()
+            operator_requirement_manager = OperatorRequirementManager(operator_requirement_file_path)
+            is_valid = await operator_requirement_manager.validate()
             
             if is_valid:
                 return True, []
             else:
-                # Get validation errors (this would be implemented in SubsetManager)
-                return False, ["Subset validation failed - see logs for details"]
+                # Get validation errors (this would be implemented in OperatorRequirementManager)
+                return False, ["Operator requirement validation failed - see logs for details"]
         
         except Exception as e:
             return False, [str(e)]
+    
+    @deprecated("Use validate_operator_requirement_file() instead.")
+    async def validate_subset_file(self, subset_file_path: str) -> Tuple[bool, List[str]]:
+        """Deprecated: Validate a subset definition file."""
+        return await self.validate_operator_requirement_file(subset_file_path)
     
     async def export_result_as_json(self, result: Union[ComparisonResult, EnhancedComparisonResult], 
                                   output_path: Path, include_metadata: bool = True) -> None:
@@ -664,3 +670,15 @@ class TR181ComparatorApp:
                 'default_format': self.config.export_settings.default_format
             }
         }
+    
+    @deprecated("Use compare_operator_requirement_vs_device() instead.")
+    @performance_monitor("compare_subset_vs_device", "main")
+    async def compare_subset_vs_device(self, subset_file_path: str, device_config_path: str, 
+                                     include_validation: bool = False) -> Union[ComparisonResult, EnhancedComparisonResult]:
+        """Deprecated: Compare subset against device implementation."""
+        return await self.compare_operator_requirement_vs_device(subset_file_path, device_config_path, include_validation)
+    
+    @deprecated("Use extract_nodes() with source_type='operator_requirement' instead.")
+    async def extract_subset_nodes(self, subset_file_path: str) -> List[TR181Node]:
+        """Deprecated: Extract TR181 nodes from a subset definition file."""
+        return await self.extract_nodes('operator_requirement', subset_file_path)

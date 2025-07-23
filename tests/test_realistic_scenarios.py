@@ -16,7 +16,7 @@ from tr181_comparator.models import (
     TR181Node, AccessLevel, ValueRange, TR181Event, TR181Function
 )
 from tr181_comparator.comparison import ComparisonEngine, EnhancedComparisonEngine
-from tr181_comparator.extractors import CWMPExtractor, HookBasedDeviceExtractor, SubsetManager
+from tr181_comparator.extractors import CWMPExtractor, HookBasedDeviceExtractor, OperatorRequirementManager
 from tr181_comparator.hooks import DeviceConfig
 from tr181_comparator.errors import ConnectionError, ValidationError
 
@@ -275,7 +275,7 @@ class TestRealisticScenarios:
         # Vendor A device (more comprehensive TR181 support)
         vendor_a_nodes = TestDataGenerator.generate_realistic_tr181_nodes(80)
         
-        # Vendor B device (different subset of TR181 support)
+        # Vendor B device (different implementation of TR181 support)
         vendor_b_base_nodes = TestDataGenerator.generate_realistic_tr181_nodes(60)
         # Add vendor-specific custom nodes
         vendor_b_custom_nodes = [
@@ -355,8 +355,8 @@ class TestRealisticScenarios:
     
     @pytest.mark.asyncio
     async def test_compliance_validation_scenario(self, tmp_path):
-        """Test compliance validation against a standard subset."""
-        # Create compliance subset (required TR181 parameters)
+        """Test compliance validation against a standard operator requirement."""
+        # Create compliance operator requirement (required TR181 parameters)
         compliance_nodes = [
             TR181Node(
                 path="Device.DeviceInfo.Manufacturer",
@@ -397,10 +397,10 @@ class TestRealisticScenarios:
             )
         ]
         
-        # Create subset manager
-        subset_file = tmp_path / "compliance_subset.json"
-        subset_manager = SubsetManager(str(subset_file))
-        await subset_manager.save_subset(compliance_nodes)
+        # Create operator requirement manager
+        operator_requirement_file = tmp_path / "compliance_operator_requirement.json"
+        operator_requirement_manager = OperatorRequirementManager(str(operator_requirement_file))
+        await operator_requirement_manager.save_operator_requirement(compliance_nodes)
         
         # Create device with partial compliance
         device_nodes = TestDataGenerator.generate_realistic_tr181_nodes(30)
@@ -421,11 +421,11 @@ class TestRealisticScenarios:
         # Perform enhanced comparison for compliance validation
         enhanced_engine = EnhancedComparisonEngine()
         
-        subset_extracted = await subset_manager.extract()
+        operator_requirement_extracted = await operator_requirement_manager.extract()
         device_extracted = await device_extractor.extract()
         
         result = await enhanced_engine.compare_with_validation(
-            subset_extracted, device_extracted, device_extractor
+            operator_requirement_extracted, device_extracted, device_extractor
         )
         
         # Analyze compliance
@@ -560,11 +560,11 @@ class TestRealisticScenarios:
         
         target_nodes = target_base_nodes + target_specific_nodes
         
-        # Create migration plan (subset of source configuration to migrate)
-        migration_nodes = source_nodes[:35]  # Migrate subset of configuration
+        # Create migration plan (operator requirement of source configuration to migrate)
+        migration_nodes = source_nodes[:35]  # Migrate operator requirement of configuration
         migration_file = tmp_path / "migration_plan.json"
-        migration_manager = SubsetManager(str(migration_file))
-        await migration_manager.save_subset(migration_nodes)
+        migration_manager = OperatorRequirementManager(str(migration_file))
+        await migration_manager.save_operator_requirement(migration_nodes)
         
         # Create device configurations
         source_config = DeviceConfig(

@@ -10,7 +10,7 @@ from tr181_comparator.models import (
     TR181Node, AccessLevel, ValueRange, TR181Event, TR181Function
 )
 from tr181_comparator.comparison import ComparisonEngine
-from tr181_comparator.extractors import CWMPExtractor, SubsetManager
+from tr181_comparator.extractors import CWMPExtractor, OperatorRequirementManager
 from tr181_comparator.hooks import DeviceConfig
 from tr181_comparator.errors import ConnectionError
 
@@ -171,27 +171,27 @@ class TestEndToEndComparisons:
     """End-to-end integration tests for all comparison scenarios."""
     
     @pytest.mark.asyncio
-    async def test_cwmp_vs_subset_comparison(self, realistic_tr181_nodes, cwmp_device_config, tmp_path):
-        """Test CWMP vs subset comparison scenario."""
+    async def test_cwmp_vs_operator_requirement_comparison(self, realistic_tr181_nodes, cwmp_device_config, tmp_path):
+        """Test CWMP vs operator requirement comparison scenario."""
         # Create CWMP extractor with mock hook
         cwmp_hook = MockCWMPHook(realistic_tr181_nodes)
         cwmp_extractor = CWMPExtractor(cwmp_hook, cwmp_device_config)
         
-        # Create subset with modified nodes
-        subset_nodes = TestDataGenerator.create_modified_nodes(realistic_tr181_nodes[:30], 0.2)
-        subset_file = tmp_path / "test_subset.json"
-        subset_manager = SubsetManager(str(subset_file))
-        await subset_manager.save_subset(subset_nodes)
+        # Create operator requirement with modified nodes
+        operator_requirement_nodes = TestDataGenerator.create_modified_nodes(realistic_tr181_nodes[:30], 0.2)
+        operator_requirement_file = tmp_path / "test_operator_requirement.json"
+        operator_requirement_manager = OperatorRequirementManager(str(operator_requirement_file))
+        await operator_requirement_manager.save_operator_requirement(operator_requirement_nodes)
         
         # Perform comparison
         comparison_engine = ComparisonEngine()
         
         # Extract from both sources
         cwmp_nodes = await cwmp_extractor.extract()
-        subset_nodes_extracted = await subset_manager.extract()
+        operator_requirement_nodes_extracted = await operator_requirement_manager.extract()
         
         # Compare
-        result = await comparison_engine.compare(cwmp_nodes, subset_nodes_extracted)
+        result = await comparison_engine.compare(cwmp_nodes, operator_requirement_nodes_extracted)
         
         # Verify results
         assert result.summary.total_nodes_source1 == len(realistic_tr181_nodes)
@@ -200,7 +200,7 @@ class TestEndToEndComparisons:
         assert len(result.only_in_source1) > 0  # CWMP has more nodes
         
         print(f"CWMP nodes: {len(cwmp_nodes)}")
-        print(f"Subset nodes: {len(subset_nodes_extracted)}")
+        print(f"Operator Requirement nodes: {len(operator_requirement_nodes_extracted)}")
         print(f"Common nodes: {result.summary.common_nodes}")
         print(f"Differences: {len(result.differences)}")
 

@@ -1,4 +1,4 @@
-"""Unit tests for SubsetManager class."""
+"""Unit tests for OperatorRequirementManager class."""
 
 import pytest
 import asyncio
@@ -9,12 +9,12 @@ import os
 from datetime import datetime
 from unittest.mock import patch, mock_open
 
-from tr181_comparator.extractors import SubsetManager, ValidationError, ValidationResult
+from tr181_comparator.extractors import OperatorRequirementManager, ValidationError, ValidationResult
 from tr181_comparator.models import TR181Node, AccessLevel, ValueRange, TR181Event, TR181Function
 
 
-class TestSubsetManager:
-    """Test cases for SubsetManager class."""
+class TestOperatorRequirementManager:
+    """Test cases for OperatorRequirementManager class."""
     
     @pytest.fixture
     def temp_json_file(self):
@@ -61,13 +61,13 @@ class TestSubsetManager:
         ]
     
     @pytest.fixture
-    def sample_subset_data(self):
-        """Create sample subset data structure."""
+    def sample_operator_requirement_data(self):
+        """Create sample operator requirement data structure."""
         return {
             "version": "1.0",
             "metadata": {
                 "created": "2024-01-01T00:00:00",
-                "description": "Test subset",
+                "description": "Test operator requirement",
                 "total_nodes": 2,
                 "custom_nodes": 1
             },
@@ -100,39 +100,39 @@ class TestSubsetManager:
         }
     
     def test_init(self, temp_json_file):
-        """Test SubsetManager initialization."""
-        manager = SubsetManager(temp_json_file)
-        assert manager.subset_path == temp_json_file
+        """Test OperatorRequirementManager initialization."""
+        manager = OperatorRequirementManager(temp_json_file)
+        assert manager.operator_requirement_path == temp_json_file
         assert manager._nodes == []
         assert not manager._loaded
         assert manager._source_identifier == temp_json_file
     
     def test_detect_file_format_json(self, temp_json_file):
         """Test file format detection for JSON files."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         assert manager._detect_file_format() == 'json'
     
     def test_detect_file_format_yaml(self, temp_yaml_file):
         """Test file format detection for YAML files."""
-        manager = SubsetManager(temp_yaml_file)
+        manager = OperatorRequirementManager(temp_yaml_file)
         assert manager._detect_file_format() == 'yaml'
     
     @pytest.mark.asyncio
     async def test_extract_empty_file(self, temp_json_file):
-        """Test extracting from non-existent file creates empty subset."""
-        manager = SubsetManager(temp_json_file)
+        """Test extracting from non-existent file creates empty operator requirement."""
+        manager = OperatorRequirementManager(temp_json_file)
         nodes = await manager.extract()
         assert nodes == []
         assert manager._loaded
     
     @pytest.mark.asyncio
-    async def test_extract_json_file(self, temp_json_file, sample_subset_data):
+    async def test_extract_json_file(self, temp_json_file, sample_operator_requirement_data):
         """Test extracting nodes from JSON file."""
         # Write sample data to file
         with open(temp_json_file, 'w') as f:
-            json.dump(sample_subset_data, f)
+            json.dump(sample_operator_requirement_data, f)
         
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         nodes = await manager.extract()
         
         assert len(nodes) == 2
@@ -148,13 +148,13 @@ class TestSubsetManager:
         assert nodes[1].value_range.allowed_values == ["test_value", "other_value"]
     
     @pytest.mark.asyncio
-    async def test_extract_yaml_file(self, temp_yaml_file, sample_subset_data):
+    async def test_extract_yaml_file(self, temp_yaml_file, sample_operator_requirement_data):
         """Test extracting nodes from YAML file."""
         # Write sample data to file
         with open(temp_yaml_file, 'w') as f:
-            yaml.safe_dump(sample_subset_data, f)
+            yaml.safe_dump(sample_operator_requirement_data, f)
         
-        manager = SubsetManager(temp_yaml_file)
+        manager = OperatorRequirementManager(temp_yaml_file)
         nodes = await manager.extract()
         
         assert len(nodes) == 2
@@ -168,7 +168,7 @@ class TestSubsetManager:
         with open(temp_json_file, 'w') as f:
             f.write("invalid json content")
         
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         with pytest.raises(ValidationError):
             await manager.extract()
     
@@ -177,42 +177,42 @@ class TestSubsetManager:
         """Test validating non-existent file."""
         # Delete the file created by fixture to test non-existent file
         os.unlink(temp_json_file)
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         result = await manager.validate()
         
         assert not result.is_valid
-        assert "Subset file not found" in result.errors[0]
+        assert "Operator requirement file not found" in result.errors[0]
     
     @pytest.mark.asyncio
-    async def test_validate_valid_file(self, temp_json_file, sample_subset_data):
-        """Test validating valid subset file."""
+    async def test_validate_valid_file(self, temp_json_file, sample_operator_requirement_data):
+        """Test validating valid operator requirement file."""
         # Write valid data
         with open(temp_json_file, 'w') as f:
-            json.dump(sample_subset_data, f)
+            json.dump(sample_operator_requirement_data, f)
         
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         result = await manager.validate()
         
         assert result.is_valid
     
     def test_get_source_info(self, temp_json_file, sample_nodes):
         """Test getting source info."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         manager._nodes = sample_nodes
         
         source_info = manager.get_source_info()
         
-        assert source_info.type == "subset"
+        assert source_info.type == "operator_requirement"
         assert source_info.identifier == temp_json_file
         assert source_info.metadata["node_count"] == 2
         assert source_info.metadata["custom_nodes"] == 1
         assert source_info.metadata["file_format"] == "json"
     
     @pytest.mark.asyncio
-    async def test_save_subset_json(self, temp_json_file, sample_nodes):
-        """Test saving subset to JSON file."""
-        manager = SubsetManager(temp_json_file)
-        await manager.save_subset(sample_nodes)
+    async def test_save_operator_requirement_json(self, temp_json_file, sample_nodes):
+        """Test saving operator requirement to JSON file."""
+        manager = OperatorRequirementManager(temp_json_file)
+        await manager.save_operator_requirement(sample_nodes)
         
         # Verify file was written
         assert os.path.exists(temp_json_file)
@@ -227,10 +227,10 @@ class TestSubsetManager:
         assert len(data["nodes"]) == 2
     
     @pytest.mark.asyncio
-    async def test_save_subset_yaml(self, temp_yaml_file, sample_nodes):
-        """Test saving subset to YAML file."""
-        manager = SubsetManager(temp_yaml_file)
-        await manager.save_subset(sample_nodes)
+    async def test_save_operator_requirement_yaml(self, temp_yaml_file, sample_nodes):
+        """Test saving operator requirement to YAML file."""
+        manager = OperatorRequirementManager(temp_yaml_file)
+        await manager.save_operator_requirement(sample_nodes)
         
         # Verify file was written
         assert os.path.exists(temp_yaml_file)
@@ -243,8 +243,8 @@ class TestSubsetManager:
         assert len(data["nodes"]) == 2
     
     @pytest.mark.asyncio
-    async def test_save_subset_with_duplicates(self, temp_json_file):
-        """Test saving subset with duplicate paths raises ValidationError."""
+    async def test_save_operator_requirement_with_duplicates(self, temp_json_file):
+        """Test saving operator requirement with duplicate paths raises ValidationError."""
         duplicate_nodes = [
             TR181Node(
                 path="Device.Test.Parameter",
@@ -260,16 +260,16 @@ class TestSubsetManager:
             )
         ]
         
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         with pytest.raises(ValidationError) as exc_info:
-            await manager.save_subset(duplicate_nodes)
+            await manager.save_operator_requirement(duplicate_nodes)
         
         assert "Duplicate node path" in str(exc_info.value)
     
     @pytest.mark.asyncio
     async def test_add_custom_node(self, temp_json_file):
         """Test adding a custom node."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         
         custom_node = TR181Node(
             path="Device.Custom.NewParameter",
@@ -288,7 +288,7 @@ class TestSubsetManager:
     @pytest.mark.asyncio
     async def test_add_custom_node_duplicate_path(self, temp_json_file, sample_nodes):
         """Test adding custom node with duplicate path raises ValidationError."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         manager._nodes = sample_nodes.copy()
         manager._loaded = True
         
@@ -307,7 +307,7 @@ class TestSubsetManager:
     @pytest.mark.asyncio
     async def test_add_custom_node_invalid_path(self, temp_json_file):
         """Test adding custom node with invalid path raises ValidationError."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         
         invalid_node = TR181Node(
             path="InvalidPath.Test",  # Doesn't start with Device.
@@ -324,7 +324,7 @@ class TestSubsetManager:
     @pytest.mark.asyncio
     async def test_remove_node(self, temp_json_file, sample_nodes):
         """Test removing a node by path."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         manager._nodes = sample_nodes.copy()
         manager._loaded = True
         
@@ -341,7 +341,7 @@ class TestSubsetManager:
     
     def test_get_custom_nodes(self, temp_json_file, sample_nodes):
         """Test getting only custom nodes."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         manager._nodes = sample_nodes
         
         custom_nodes = manager.get_custom_nodes()
@@ -352,7 +352,7 @@ class TestSubsetManager:
     
     def test_get_standard_nodes(self, temp_json_file, sample_nodes):
         """Test getting only standard nodes."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         manager._nodes = sample_nodes
         
         standard_nodes = manager.get_standard_nodes()
@@ -363,7 +363,7 @@ class TestSubsetManager:
     
     def test_node_to_dict_complete(self, temp_json_file):
         """Test converting a complete node to dictionary."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         
         node = TR181Node(
             path="Device.Test.Parameter",
@@ -435,7 +435,7 @@ class TestSubsetManager:
     
     def test_dict_to_node_minimal(self, temp_json_file):
         """Test converting minimal dictionary to node."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         
         node_data = {
             "path": "Device.Test.Parameter",
@@ -462,7 +462,7 @@ class TestSubsetManager:
     
     def test_dict_to_node_missing_required_field(self, temp_json_file):
         """Test converting dictionary missing required field raises ValidationError."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         
         node_data = {
             "path": "Device.Test.Parameter",
@@ -477,7 +477,7 @@ class TestSubsetManager:
     
     def test_dict_to_node_invalid_access_level(self, temp_json_file):
         """Test converting dictionary with invalid access level raises ValidationError."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         
         node_data = {
             "path": "Device.Test.Parameter",
@@ -494,7 +494,7 @@ class TestSubsetManager:
     @pytest.mark.asyncio
     async def test_validate_custom_node_valid(self, temp_json_file):
         """Test validating a valid custom node."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         
         valid_node = TR181Node(
             path="Device.Custom.ValidParameter",
@@ -510,7 +510,7 @@ class TestSubsetManager:
     @pytest.mark.asyncio
     async def test_validate_custom_node_invalid_path(self, temp_json_file):
         """Test validating custom node with invalid path."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         
         invalid_node = TR181Node(
             path="InvalidPath.Parameter",
@@ -526,7 +526,7 @@ class TestSubsetManager:
     @pytest.mark.asyncio
     async def test_validate_custom_node_nonstandard_type(self, temp_json_file):
         """Test validating custom node with non-standard data type."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         
         node_with_custom_type = TR181Node(
             path="Device.Custom.Parameter",
@@ -543,7 +543,7 @@ class TestSubsetManager:
     @pytest.mark.asyncio
     async def test_validate_nodes_for_saving_valid(self, temp_json_file, sample_nodes):
         """Test validating valid nodes for saving."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         
         result = await manager._validate_nodes_for_saving(sample_nodes)
         assert result.is_valid
@@ -551,7 +551,7 @@ class TestSubsetManager:
     @pytest.mark.asyncio
     async def test_validate_nodes_for_saving_duplicates(self, temp_json_file):
         """Test validating nodes with duplicates for saving."""
-        manager = SubsetManager(temp_json_file)
+        manager = OperatorRequirementManager(temp_json_file)
         
         duplicate_nodes = [
             TR181Node(
@@ -573,14 +573,14 @@ class TestSubsetManager:
         assert any("Duplicate node path" in error for error in result.errors)
     
     @pytest.mark.asyncio
-    async def test_write_subset_file_creates_directory(self, temp_json_file):
-        """Test that writing subset file creates necessary directories."""
+    async def test_write_operator_requirement_file_creates_directory(self, temp_json_file):
+        """Test that writing operator requirement file creates necessary directories."""
         # Use a path with non-existent directory
-        nested_path = os.path.join(os.path.dirname(temp_json_file), "nested", "subset.json")
-        manager = SubsetManager(nested_path)
+        nested_path = os.path.join(os.path.dirname(temp_json_file), "nested", "operator_requirement.json")
+        manager = OperatorRequirementManager(nested_path)
         
         data = {"version": "1.0", "nodes": []}
-        await manager._write_subset_file(data)
+        await manager._write_operator_requirement_file(data)
         
         assert os.path.exists(nested_path)
         # Clean up

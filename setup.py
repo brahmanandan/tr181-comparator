@@ -23,7 +23,7 @@ else:
 setup(
     name="tr181-node-comparator",
     version="0.1.0",
-    description="A tool for comparing TR181 data model implementations",
+    description="A tool for comparing TR181 data model implementations against operator requirements",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="TR181 Comparator Team",
@@ -70,7 +70,7 @@ setup(
         "Topic :: Utilities",
     ],
     python_requires=">=3.8",
-    keywords="tr181 cwmp tr069 networking device management comparison validation",
+    keywords="tr181 cwmp tr069 networking device management comparison validation operator requirements",
     project_urls={
         "Bug Reports": "https://github.com/tr181-comparator/tr181-node-comparator/issues",
         "Source": "https://github.com/tr181-comparator/tr181-node-comparator",

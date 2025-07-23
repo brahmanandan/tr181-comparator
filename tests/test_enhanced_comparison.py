@@ -74,8 +74,8 @@ def mock_device_extractor():
 
 
 @pytest.fixture
-def sample_subset_nodes():
-    """Create sample subset nodes for testing."""
+def sample_operator_requirement_nodes():
+    """Create sample operator requirement nodes for testing."""
     return [
         TR181Node(
             path="Device.WiFi.Radio.1.Channel",
@@ -170,10 +170,10 @@ class TestEnhancedComparisonEngine:
     """Test cases for the enhanced comparison engine."""
     
     @pytest.mark.asyncio
-    async def test_basic_comparison_functionality(self, enhanced_engine, sample_subset_nodes, sample_device_nodes):
+    async def test_basic_comparison_functionality(self, enhanced_engine, sample_operator_requirement_nodes, sample_device_nodes):
         """Test that basic comparison functionality still works."""
         result = await enhanced_engine.compare_with_validation(
-            sample_subset_nodes, sample_device_nodes
+            sample_operator_requirement_nodes, sample_device_nodes
         )
         
         assert isinstance(result, EnhancedComparisonResult)
@@ -181,17 +181,17 @@ class TestEnhancedComparisonEngine:
         
         # Check basic comparison results
         basic = result.basic_comparison
-        assert basic.summary.total_nodes_source1 == 3  # subset nodes
+        assert basic.summary.total_nodes_source1 == 3  # operator requirement nodes
         assert basic.summary.total_nodes_source2 == 4  # device nodes
         assert basic.summary.common_nodes == 3
         assert len(basic.only_in_source2) == 1  # Device.WiFi.Radio.1.Status
         assert basic.only_in_source2[0].path == "Device.WiFi.Radio.1.Status"
     
     @pytest.mark.asyncio
-    async def test_validation_integration(self, enhanced_engine, sample_subset_nodes, sample_device_nodes):
+    async def test_validation_integration(self, enhanced_engine, sample_operator_requirement_nodes, sample_device_nodes):
         """Test validation integration in enhanced comparison."""
         result = await enhanced_engine.compare_with_validation(
-            sample_subset_nodes, sample_device_nodes
+            sample_operator_requirement_nodes, sample_device_nodes
         )
         
         # Check validation results
@@ -210,14 +210,14 @@ class TestEnhancedComparisonEngine:
         assert channel_validation.is_valid  # Value 8 is within range 1-11
     
     @pytest.mark.asyncio
-    async def test_event_function_testing_integration(self, enhanced_engine, sample_subset_nodes, 
+    async def test_event_function_testing_integration(self, enhanced_engine, sample_operator_requirement_nodes, 
                                                     sample_device_nodes, mock_device_extractor):
         """Test event and function testing integration."""
         # Mock the device extractor's extract method
         mock_device_extractor.extract = AsyncMock(return_value=sample_device_nodes)
         
         result = await enhanced_engine.compare_with_validation(
-            sample_subset_nodes, sample_device_nodes, mock_device_extractor
+            sample_operator_requirement_nodes, sample_device_nodes, mock_device_extractor
         )
         
         # Check event test results
@@ -233,13 +233,13 @@ class TestEnhancedComparisonEngine:
         assert function_result.status in [EventFunctionTestResult.PASSED, EventFunctionTestResult.FAILED]
     
     @pytest.mark.asyncio
-    async def test_comprehensive_summary(self, enhanced_engine, sample_subset_nodes, 
+    async def test_comprehensive_summary(self, enhanced_engine, sample_operator_requirement_nodes, 
                                        sample_device_nodes, mock_device_extractor):
         """Test comprehensive summary generation."""
         mock_device_extractor.extract = AsyncMock(return_value=sample_device_nodes)
         
         result = await enhanced_engine.compare_with_validation(
-            sample_subset_nodes, sample_device_nodes, mock_device_extractor
+            sample_operator_requirement_nodes, sample_device_nodes, mock_device_extractor
         )
         
         summary = result.get_summary()
@@ -265,13 +265,13 @@ class TestEnhancedComparisonEngine:
         assert summary['functions']['total_functions_tested'] == 1
     
     @pytest.mark.asyncio
-    async def test_enhanced_summary_with_compliance_score(self, enhanced_engine, sample_subset_nodes, 
+    async def test_enhanced_summary_with_compliance_score(self, enhanced_engine, sample_operator_requirement_nodes, 
                                                         sample_device_nodes, mock_device_extractor):
         """Test enhanced summary with compliance scoring."""
         mock_device_extractor.extract = AsyncMock(return_value=sample_device_nodes)
         
         result = await enhanced_engine.compare_with_validation(
-            sample_subset_nodes, sample_device_nodes, mock_device_extractor
+            sample_operator_requirement_nodes, sample_device_nodes, mock_device_extractor
         )
         
         enhanced_summary = enhanced_engine.get_enhanced_summary(result)
@@ -298,7 +298,7 @@ class TestEnhancedComparisonEngine:
     @pytest.mark.asyncio
     async def test_validation_with_range_constraints(self, enhanced_engine):
         """Test validation with value range constraints."""
-        subset_node = TR181Node(
+        operator_requirement_node = TR181Node(
             path="Device.Test.Parameter",
             name="Parameter",
             data_type="int",
@@ -315,7 +315,7 @@ class TestEnhancedComparisonEngine:
             value=15  # Outside range
         )
         
-        result = await enhanced_engine.compare_with_validation([subset_node], [device_node])
+        result = await enhanced_engine.compare_with_validation([operator_requirement_node], [device_node])
         
         # Should have validation error for out-of-range value
         assert len(result.validation_results) == 1
@@ -326,7 +326,7 @@ class TestEnhancedComparisonEngine:
     @pytest.mark.asyncio
     async def test_validation_with_data_type_mismatch(self, enhanced_engine):
         """Test validation with data type mismatches."""
-        subset_node = TR181Node(
+        operator_requirement_node = TR181Node(
             path="Device.Test.Parameter",
             name="Parameter",
             data_type="int",
@@ -341,7 +341,7 @@ class TestEnhancedComparisonEngine:
             access=AccessLevel.READ_WRITE
         )
         
-        result = await enhanced_engine.compare_with_validation([subset_node], [device_node])
+        result = await enhanced_engine.compare_with_validation([operator_requirement_node], [device_node])
         
         # Should have validation error for data type mismatch
         assert len(result.validation_results) == 1
@@ -352,7 +352,7 @@ class TestEnhancedComparisonEngine:
     @pytest.mark.asyncio
     async def test_object_node_children_validation(self, enhanced_engine):
         """Test validation of object node children."""
-        subset_node = TR181Node(
+        operator_requirement_node = TR181Node(
             path="Device.WiFi.Radio.1",
             name="Radio",
             data_type="object",
@@ -371,7 +371,7 @@ class TestEnhancedComparisonEngine:
             children=["Device.WiFi.Radio.1.Channel"]  # Missing SSID
         )
         
-        result = await enhanced_engine.compare_with_validation([subset_node], [device_node])
+        result = await enhanced_engine.compare_with_validation([operator_requirement_node], [device_node])
         
         # Should have validation error for missing child
         assert len(result.validation_results) == 1
@@ -380,10 +380,10 @@ class TestEnhancedComparisonEngine:
         assert any("Missing child nodes" in error for error in validation_result.errors)
     
     @pytest.mark.asyncio
-    async def test_without_device_extractor(self, enhanced_engine, sample_subset_nodes, sample_device_nodes):
+    async def test_without_device_extractor(self, enhanced_engine, sample_operator_requirement_nodes, sample_device_nodes):
         """Test enhanced comparison without device extractor (no event/function testing)."""
         result = await enhanced_engine.compare_with_validation(
-            sample_subset_nodes, sample_device_nodes, device_extractor=None
+            sample_operator_requirement_nodes, sample_device_nodes, device_extractor=None
         )
         
         # Should have basic comparison and validation, but no event/function tests

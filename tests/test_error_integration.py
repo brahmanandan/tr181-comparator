@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import tempfile
 import os
 
-from tr181_comparator.extractors import SubsetManager, HookBasedDeviceExtractor
+from tr181_comparator.extractors import OperatorRequirementManager, HookBasedDeviceExtractor
 from tr181_comparator.errors import (
     ConnectionError, ValidationError, RetryManager, 
     GracefulDegradationManager, get_error_reporter
@@ -81,35 +81,35 @@ class TestErrorHandlingIntegration:
         get_error_reporter().clear_history()
     
     @pytest.mark.asyncio
-    async def test_subset_manager_file_not_found_error(self):
-        """Test SubsetManager handling of missing files."""
+    async def test_operator_requirement_manager_file_not_found_error(self):
+        """Test OperatorRequirementManager handling of missing files."""
         with tempfile.TemporaryDirectory() as temp_dir:
             non_existent_file = os.path.join(temp_dir, "non_existent.json")
             
-            subset_manager = SubsetManager(non_existent_file)
+            operator_requirement_manager = OperatorRequirementManager(non_existent_file)
             
-            # Should handle missing file gracefully by creating empty subset
-            nodes = await subset_manager.extract()
+            # Should handle missing file gracefully by creating empty operator requirement
+            nodes = await operator_requirement_manager.extract()
             assert nodes == []
             
-            # Validation should pass for empty subset
-            validation_result = await subset_manager.validate()
+            # Validation should pass for empty operator requirement
+            validation_result = await operator_requirement_manager.validate()
             assert validation_result.is_valid
     
     @pytest.mark.asyncio
-    async def test_subset_manager_invalid_json_error(self):
-        """Test SubsetManager handling of invalid JSON."""
+    async def test_operator_requirement_manager_invalid_json_error(self):
+        """Test OperatorRequirementManager handling of invalid JSON."""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
             f.write("invalid json content {")
             temp_file = f.name
         
         try:
-            subset_manager = SubsetManager(temp_file)
+            operator_requirement_manager = OperatorRequirementManager(temp_file)
             
             with pytest.raises(ValidationError) as exc_info:
-                await subset_manager.extract()
+                await operator_requirement_manager.extract()
             
-            assert "Failed to load subset" in str(exc_info.value)
+            assert "Failed to load operator requirement" in str(exc_info.value)
             assert exc_info.value.category.value == "validation"
             
         finally:

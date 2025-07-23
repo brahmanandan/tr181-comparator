@@ -173,32 +173,32 @@ class CWMPExtractor(NodeExtractor):
         """Get CWMP source information."""
 ```
 
-### SubsetManager
+### OperatorRequirementManager
 
-Manages custom TR181 subsets and node definitions.
+Manages custom TR181 operator requirements and node definitions.
 
 ```python
-class SubsetManager(NodeExtractor):
-    def __init__(self, subset_path: str):
-        """Initialize subset manager.
+class OperatorRequirementManager(NodeExtractor):
+    def __init__(self, operator_requirement_path: str):
+        """Initialize operator requirement manager.
         
         Args:
-            subset_path: Path to subset definition file (JSON/YAML)
+            operator_requirement_path: Path to operator requirement definition file (JSON/YAML)
         """
         
     async def extract(self) -> List[TR181Node]:
-        """Load TR181 nodes from subset definition.
+        """Load TR181 nodes from operator requirement definition.
         
         Returns:
-            List[TR181Node]: Nodes defined in the subset
+            List[TR181Node]: Nodes defined in the operator requirement
             
         Raises:
-            FileNotFoundError: If subset file doesn't exist
-            ValidationError: If subset format is invalid
+            FileNotFoundError: If operator requirement file doesn't exist
+            ValidationError: If operator requirement format is invalid
         """
         
-    async def save_subset(self, nodes: List[TR181Node], path: str = None) -> None:
-        """Save TR181 nodes to subset file.
+    async def save_operator_requirement(self, nodes: List[TR181Node], path: str = None) -> None:
+        """Save TR181 nodes to operator requirement file.
         
         Args:
             nodes: List of TR181 nodes to save
@@ -210,7 +210,7 @@ class SubsetManager(NodeExtractor):
         """
         
     async def add_custom_node(self, node: TR181Node) -> None:
-        """Add a custom node definition to the subset.
+        """Add a custom node definition to the operator requirement.
         
         Args:
             node: Custom TR181 node to add
@@ -219,8 +219,8 @@ class SubsetManager(NodeExtractor):
             ValidationError: If node definition is invalid
         """
         
-    async def validate_subset(self) -> ValidationResult:
-        """Validate all nodes in the subset follow TR181 conventions."""
+    async def validate_operator_requirement(self) -> ValidationResult:
+        """Validate all nodes in the operator requirement follow TR181 conventions."""
 ```
 
 ### HookBasedDeviceExtractor
@@ -421,7 +421,7 @@ Main system configuration container.
 @dataclass
 class SystemConfig:
     devices: List[DeviceConfig]
-    subsets: List[SubsetConfig]
+    operator_requirements: List[OperatorRequirementConfig]
     export: ExportConfig
     logging: Dict[str, Any]
 ```
@@ -465,7 +465,7 @@ class ConfigurationError(TR181Error):
 ### Basic Node Extraction
 
 ```python
-from tr181_comparator import CWMPExtractor, SubsetManager
+from tr181_comparator import CWMPExtractor, OperatorRequirementManager
 
 # Extract from CWMP source
 cwmp_config = {
@@ -476,9 +476,9 @@ cwmp_config = {
 cwmp_extractor = CWMPExtractor(cwmp_config)
 cwmp_nodes = await cwmp_extractor.extract()
 
-# Load from subset
-subset_manager = SubsetManager('my_subset.json')
-subset_nodes = await subset_manager.extract()
+# Load from operator requirement
+operator_requirement_manager = OperatorRequirementManager('my_operator_requirement.json')
+operator_requirement_nodes = await operator_requirement_manager.extract()
 ```
 
 ### Basic Comparison
@@ -487,10 +487,10 @@ subset_nodes = await subset_manager.extract()
 from tr181_comparator import ComparisonEngine
 
 engine = ComparisonEngine()
-result = await engine.compare(cwmp_nodes, subset_nodes)
+result = await engine.compare(cwmp_nodes, operator_requirement_nodes)
 
 print(f"Nodes only in CWMP: {len(result.only_in_source1)}")
-print(f"Nodes only in subset: {len(result.only_in_source2)}")
+print(f"Nodes only in operator requirement: {len(result.only_in_source2)}")
 print(f"Differences found: {len(result.differences)}")
 ```
 
@@ -511,7 +511,7 @@ device_extractor = HookBasedDeviceExtractor(device_config, hook)
 # Perform enhanced comparison
 enhanced_engine = EnhancedComparisonEngine()
 result = await enhanced_engine.compare_with_validation(
-    subset_nodes, 
+    operator_requirement_nodes, 
     device_nodes, 
     device_extractor
 )

@@ -13,7 +13,7 @@ import asyncio
 import json
 from datetime import datetime
 from tr181_comparator import (
-    EnhancedComparisonEngine, SubsetManager, HookBasedDeviceExtractor,
+    EnhancedComparisonEngine, OperatorRequirementManager, HookBasedDeviceExtractor,
     TR181Node, AccessLevel, ValueRange, TR181Event, TR181Function,
     DeviceConfig, RESTAPIHook, TR181Validator, ValidationResult
 )
@@ -74,9 +74,9 @@ class CustomEnterpriseValidator(TR181Validator):
             elif '5GHz' in node.path and value > 23:
                 result.add_error(f"5GHz transmit power {value}dBm exceeds limit (23dBm)")
 
-async def create_comprehensive_subset():
-    """Create a comprehensive subset with events and functions."""
-    print("Creating comprehensive TR181 subset...")
+async def create_comprehensive_operator_requirement():
+    """Create a comprehensive operator requirement with events and functions."""
+    print("Creating comprehensive TR181 operator requirement...")
     
     # Define events
     wifi_events = [
@@ -234,10 +234,10 @@ async def create_comprehensive_subset():
         )
     ]
     
-    # Save comprehensive subset
-    subset_manager = SubsetManager("examples/comprehensive_subset.json")
-    await subset_manager.save_subset(nodes)
-    print(f"✓ Saved {len(nodes)} nodes to comprehensive subset")
+    # Save comprehensive operator requirement
+    operator_requirement_manager = OperatorRequirementManager("examples/comprehensive_operator_requirement.json")
+    await operator_requirement_manager.save_operator_requirement(nodes)
+    print(f"✓ Saved {len(nodes)} nodes to comprehensive operator requirement")
     
     return nodes
 
@@ -333,7 +333,7 @@ async def create_mock_device_implementation():
             is_custom=True
         ),
         
-        # Extra parameter not in subset
+        # Extra parameter not in operator requirement
         TR181Node(
             path="Device.WiFi.Radio.1.OperatingFrequencyBand",
             name="OperatingFrequencyBand",
@@ -352,7 +352,7 @@ async def perform_enhanced_comparison():
     print("-" * 50)
     
     # Create test data
-    subset_nodes = await create_comprehensive_subset()
+    operator_requirement_nodes = await create_comprehensive_operator_requirement()
     device_nodes = await create_mock_device_implementation()
     
     # Create enhanced comparison engine with custom validator
@@ -361,7 +361,7 @@ async def perform_enhanced_comparison():
     
     # Perform enhanced comparison
     result = await enhanced_engine.compare_with_validation(
-        subset_nodes,
+        operator_requirement_nodes,
         device_nodes
     )
     
@@ -370,7 +370,7 @@ async def perform_enhanced_comparison():
     
     print("Enhanced Comparison Results:")
     print("=" * 30)
-    print(f"Subset nodes: {len(subset_nodes)}")
+    print(f"Operator requirement nodes: {len(operator_requirement_nodes)}")
     print(f"Device nodes: {len(device_nodes)}")
     print(f"Common nodes: {summary['basic_comparison']['common_nodes']}")
     print(f"Missing in device: {summary['basic_comparison']['missing_in_device']}")

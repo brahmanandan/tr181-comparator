@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from .models import TR181Node
 from .logging import get_logger, performance_monitor, LogCategory
+from .deprecation import deprecated, deprecated_argument
 
 # Forward declarations for type hints
 if False:  # TYPE_CHECKING
@@ -15,7 +16,7 @@ if False:  # TYPE_CHECKING
 @dataclass
 class SourceInfo:
     """Metadata about a TR181 data source."""
-    type: str  # 'cwmp', 'device', or 'subset'
+    type: str  # 'cwmp', 'device', or 'operator-requirement'
     identifier: str  # Source identifier (URL, file path, device ID, etc.)
     timestamp: datetime  # When the data was extracted/created
     metadata: Dict[str, Any]  # Additional source-specific metadata
@@ -79,7 +80,7 @@ class NodeExtractor(ABC):
     
     This class defines the interface that all TR181 node extractors must implement.
     Extractors are responsible for retrieving TR181 node data from various sources
-    such as CWMP endpoints, device APIs, or subset definition files.
+    such as CWMP endpoints, device APIs, or operator requirement definition files.
     """
     
     def __init__(self, source_identifier: str, metadata: Optional[Dict[str, Any]] = None):
@@ -799,81 +800,81 @@ from .errors import (
 )
 
 
-class SubsetManager(NodeExtractor):
-    """Manages custom TR181 subsets and custom node definitions.
+class OperatorRequirementManager(NodeExtractor):
+    """Manages operator requirement definitions and custom node definitions.
     
-    This class handles loading, saving, and validating custom TR181 node subsets
+    This class handles loading, saving, and validating operator requirement node definitions
     from JSON/YAML files. It supports both standard TR181 nodes and custom
     node definitions while ensuring proper validation and duplicate detection.
     """
     
-    def __init__(self, subset_path: str, metadata: Optional[Dict[str, Any]] = None):
-        """Initialize the SubsetManager with a file path.
+    def __init__(self, operator_requirement_path: str, metadata: Optional[Dict[str, Any]] = None):
+        """Initialize the OperatorRequirementManager with a file path.
         
         Args:
-            subset_path: Path to the subset definition file (JSON or YAML)
-            metadata: Optional metadata about the subset
+            operator_requirement_path: Path to the operator requirement definition file (JSON or YAML)
+            metadata: Optional metadata about the operator requirement
         """
-        super().__init__(subset_path, metadata)
-        self.subset_path = subset_path
+        super().__init__(operator_requirement_path, metadata)
+        self.operator_requirement_path = operator_requirement_path
         self._nodes: List[TR181Node] = []
         self._loaded = False
     
     async def extract(self) -> List[TR181Node]:
-        """Extract TR181 nodes from the subset definition file.
+        """Extract TR181 nodes from the operator requirement definition file.
         
         Returns:
-            List of TR181Node objects from the subset
+            List of TR181Node objects from the operator requirement
             
         Raises:
-            FileNotFoundError: If the subset file doesn't exist
-            ValidationError: If the subset data is invalid
+            FileNotFoundError: If the operator requirement file doesn't exist
+            ValidationError: If the operator requirement data is invalid
             Exception: For other loading failures
         """
         if not self._loaded:
-            await self._load_subset()
+            await self._load_operator_requirement()
         
         self._update_extraction_timestamp()
         return self._nodes.copy()
     
     async def validate(self) -> ValidationResult:
-        """Validate the subset file and its contents.
+        """Validate the operator requirement file and its contents.
         
         Returns:
-            ValidationResult indicating if the subset is valid
+            ValidationResult indicating if the operator requirement is valid
         """
         result = ValidationResult()
         
         try:
             # Check if file exists and is readable
             import os
-            if not os.path.exists(self.subset_path):
-                result.add_error(f"Subset file not found: {self.subset_path}")
+            if not os.path.exists(self.operator_requirement_path):
+                result.add_error(f"Operator requirement file not found: {self.operator_requirement_path}")
                 return result
             
-            if not os.access(self.subset_path, os.R_OK):
-                result.add_error(f"Subset file is not readable: {self.subset_path}")
+            if not os.access(self.operator_requirement_path, os.R_OK):
+                result.add_error(f"Operator requirement file is not readable: {self.operator_requirement_path}")
                 return result
             
-            # Try to load and validate the subset
-            await self._load_subset()
+            # Try to load and validate the operator requirement
+            await self._load_operator_requirement()
             validation_result = self._validate_extracted_nodes(self._nodes)
             result.merge(validation_result)
             
         except Exception as e:
-            result.add_error(f"Failed to validate subset: {str(e)}")
+            result.add_error(f"Failed to validate operator requirement: {str(e)}")
         
         return result
     
     def get_source_info(self) -> SourceInfo:
-        """Get metadata about the subset source.
+        """Get metadata about the operator requirement source.
         
         Returns:
-            SourceInfo object containing subset metadata
+            SourceInfo object containing operator requirement metadata
         """
         return SourceInfo(
-            type="subset",
-            identifier=self.subset_path,
+            type="operator_requirement",
+            identifier=self.operator_requirement_path,
             timestamp=self._extraction_timestamp or datetime.now(),
             metadata={
                 **self._metadata,
@@ -883,8 +884,8 @@ class SubsetManager(NodeExtractor):
             }
         )
     
-    async def save_subset(self, nodes: List[TR181Node]) -> None:
-        """Save TR181 nodes to the subset file.
+    async def save_operator_requirement(self, nodes: List[TR181Node]) -> None:
+        """Save TR181 nodes to the operator requirement file.
         
         Args:
             nodes: List of TR181Node objects to save
@@ -896,13 +897,13 @@ class SubsetManager(NodeExtractor):
         # Validate nodes before saving
         validation_result = await self._validate_nodes_for_saving(nodes)
         if not validation_result.is_valid:
-            raise ValidationError(f"Cannot save subset: {'; '.join(validation_result.errors)}")
+            raise ValidationError(f"Cannot save operator requirement: {'; '.join(validation_result.errors)}")
         
         # Convert nodes to serializable format
-        subset_data = self._nodes_to_dict(nodes)
+        operator_requirement_data = self._nodes_to_dict(nodes)
         
         # Write to file
-        await self._write_subset_file(subset_data)
+        await self._write_operator_requirement_file(operator_requirement_data)
         
         # Update internal state
         self._nodes = nodes.copy()
@@ -910,7 +911,7 @@ class SubsetManager(NodeExtractor):
         self._update_extraction_timestamp()
     
     async def add_custom_node(self, node: TR181Node) -> None:
-        """Add a custom node to the subset.
+        """Add a custom node to the operator requirement.
         
         Args:
             node: TR181Node to add (will be marked as custom)
@@ -920,7 +921,7 @@ class SubsetManager(NodeExtractor):
         """
         # Ensure we have loaded existing nodes
         if not self._loaded:
-            await self._load_subset()
+            await self._load_operator_requirement()
         
         # Mark as custom node
         node.is_custom = True
@@ -939,7 +940,7 @@ class SubsetManager(NodeExtractor):
         self._nodes.append(node)
     
     async def remove_node(self, path: str) -> bool:
-        """Remove a node from the subset by path.
+        """Remove a node from the operator requirement by path.
         
         Args:
             path: TR181 path of the node to remove
@@ -948,14 +949,14 @@ class SubsetManager(NodeExtractor):
             True if node was removed, False if not found
         """
         if not self._loaded:
-            await self._load_subset()
+            await self._load_operator_requirement()
         
         original_count = len(self._nodes)
         self._nodes = [node for node in self._nodes if node.path != path]
         return len(self._nodes) < original_count
     
     def get_custom_nodes(self) -> List[TR181Node]:
-        """Get only the custom nodes from the subset.
+        """Get only the custom nodes from the operator requirement.
         
         Returns:
             List of custom TR181Node objects
@@ -963,33 +964,33 @@ class SubsetManager(NodeExtractor):
         return [node for node in self._nodes if node.is_custom]
     
     def get_standard_nodes(self) -> List[TR181Node]:
-        """Get only the standard TR181 nodes from the subset.
+        """Get only the standard TR181 nodes from the operator requirement.
         
         Returns:
             List of standard TR181Node objects
         """
         return [node for node in self._nodes if not node.is_custom]
     
-    async def _load_subset(self) -> None:
-        """Load subset definition from file."""
+    async def _load_operator_requirement(self) -> None:
+        """Load operator requirement definition from file."""
         import json
         import os
         
-        if not os.path.exists(self.subset_path):
-            # Create empty subset if file doesn't exist
+        if not os.path.exists(self.operator_requirement_path):
+            # Create empty operator requirement if file doesn't exist
             self._nodes = []
             self._loaded = True
             return
         
         # Check if file is empty
-        if os.path.getsize(self.subset_path) == 0:
-            # Create empty subset if file is empty
+        if os.path.getsize(self.operator_requirement_path) == 0:
+            # Create empty operator requirement if file is empty
             self._nodes = []
             self._loaded = True
             return
         
         try:
-            with open(self.subset_path, 'r', encoding='utf-8') as f:
+            with open(self.operator_requirement_path, 'r', encoding='utf-8') as f:
                 if self._detect_file_format() == 'yaml':
                     import yaml
                     data = yaml.safe_load(f)
@@ -1006,29 +1007,29 @@ class SubsetManager(NodeExtractor):
             self._loaded = True
             
         except Exception as e:
-            raise ValidationError(f"Failed to load subset from {self.subset_path}: {str(e)}")
+            raise ValidationError(f"Failed to load operator requirement from {self.operator_requirement_path}: {str(e)}")
     
-    async def _write_subset_file(self, data: Dict[str, Any]) -> None:
-        """Write subset data to file."""
+    async def _write_operator_requirement_file(self, data: Dict[str, Any]) -> None:
+        """Write operator requirement data to file."""
         import json
         import os
         
         # Ensure directory exists
-        os.makedirs(os.path.dirname(self.subset_path), exist_ok=True)
+        os.makedirs(os.path.dirname(self.operator_requirement_path), exist_ok=True)
         
         try:
-            with open(self.subset_path, 'w', encoding='utf-8') as f:
+            with open(self.operator_requirement_path, 'w', encoding='utf-8') as f:
                 if self._detect_file_format() == 'yaml':
                     import yaml
                     yaml.safe_dump(data, f, default_flow_style=False, indent=2)
                 else:
                     json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            raise Exception(f"Failed to write subset to {self.subset_path}: {str(e)}")
+            raise Exception(f"Failed to write operator requirement to {self.operator_requirement_path}: {str(e)}")
     
     def _detect_file_format(self) -> str:
         """Detect file format based on extension."""
-        if self.subset_path.lower().endswith(('.yml', '.yaml')):
+        if self.operator_requirement_path.lower().endswith(('.yml', '.yaml')):
             return 'yaml'
         return 'json'
     
@@ -1038,7 +1039,7 @@ class SubsetManager(NodeExtractor):
             "version": "1.0",
             "metadata": {
                 "created": datetime.now().isoformat(),
-                "description": "TR181 node subset definition",
+                "description": "TR181 node operator requirement definition",
                 "total_nodes": len(nodes),
                 "custom_nodes": sum(1 for node in nodes if node.is_custom)
             },
@@ -1112,7 +1113,7 @@ class SubsetManager(NodeExtractor):
     def _dict_to_nodes(self, data: Dict[str, Any]) -> List[TR181Node]:
         """Convert dictionary data to TR181Node objects."""
         if not isinstance(data, dict) or "nodes" not in data:
-            raise ValidationError("Invalid subset format: missing 'nodes' key")
+            raise ValidationError("Invalid operator requirement format: missing 'nodes' key")
         
         nodes = []
         for node_data in data["nodes"]:
@@ -1134,7 +1135,7 @@ class SubsetManager(NodeExtractor):
         except KeyError as e:
             context = ErrorContext(
                 operation="parse_node_data",
-                component="SubsetManager",
+                component="OperatorRequirementManager",
                 metadata={"node_data": node_data}
             )
             raise ValidationError(
@@ -1146,7 +1147,7 @@ class SubsetManager(NodeExtractor):
         except ValueError as e:
             context = ErrorContext(
                 operation="parse_access_level",
-                component="SubsetManager",
+                component="OperatorRequirementManager",
                 metadata={"access_value": node_data.get("access")}
             )
             raise ValidationError(
@@ -1787,3 +1788,9 @@ class HookBasedDeviceExtractor(NodeExtractor):
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit with cleanup."""
         await self.disconnect()
+
+# Create a deprecated alias for backward compatibility
+@deprecated("Use OperatorRequirementManager instead.")
+class SubsetManager(OperatorRequirementManager):
+    """Deprecated: Use OperatorRequirementManager instead."""
+    pass

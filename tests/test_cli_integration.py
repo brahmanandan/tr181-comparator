@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch, AsyncMock
 
 from tr181_comparator.cli import TR181ComparatorCLI, CLIProgressReporter
 from tr181_comparator.main import TR181ComparatorApp
-from tr181_comparator.config import SystemConfig, DeviceConfig, SubsetConfig, ExportConfig
+from tr181_comparator.config import SystemConfig, DeviceConfig, OperatorRequirementConfig, ExportConfig
 from tr181_comparator.models import (
     TR181Node, AccessLevel, ComparisonResult, ComparisonSummary, 
     NodeDifference, Severity
@@ -92,7 +92,7 @@ class TestTR181ComparatorCLI:
         """Create temporary configuration file."""
         config_data = {
             "devices": [],
-            "subsets": [],
+            "operator_requirements": [],
             "export_settings": {
                 "default_format": "json",
                 "include_metadata": True,
@@ -110,13 +110,13 @@ class TestTR181ComparatorCLI:
         Path(temp_path).unlink()
     
     @pytest.fixture
-    def temp_subset_file(self):
-        """Create temporary subset file."""
-        subset_data = {
+    def temp_operator_requirement_file(self):
+        """Create temporary operator requirement file."""
+        operator_requirement_data = {
             "version": "1.0",
             "metadata": {
                 "created": "2025-01-01T00:00:00",
-                "description": "Test subset definition",
+                "description": "Test operator requirement definition",
                 "total_nodes": 1,
                 "custom_nodes": 0
             },
@@ -134,7 +134,7 @@ class TestTR181ComparatorCLI:
         }
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            json.dump(subset_data, f)
+            json.dump(operator_requirement_data, f)
             temp_path = f.name
         
         yield temp_path
@@ -193,40 +193,40 @@ class TestTR181ComparatorCLI:
         assert args.log_level == 'DEBUG'
         assert args.log_file == 'test.log'
     
-    def test_parser_cwmp_vs_subset_command(self, cli):
-        """Test CWMP vs subset command parsing."""
+    def test_parser_cwmp_vs_operator_requirement_command(self, cli):
+        """Test CWMP vs operator requirement command parsing."""
         parser = cli.create_parser()
         
         args = parser.parse_args([
-            'cwmp-vs-subset',
+            'cwmp-vs-operator-requirement',
             '--cwmp-config', 'cwmp.json',
-            '--subset-file', 'subset.json',
+            '--operator-requirement-file', 'operator_requirement.json',
             '--output', 'result.json',
             '--format', 'xml',
             '--include-metadata'
         ])
         
-        assert args.command == 'cwmp-vs-subset'
+        assert args.command == 'cwmp-vs-operator-requirement'
         assert args.cwmp_config == 'cwmp.json'
-        assert args.subset_file == 'subset.json'
+        assert args.operator_requirement_file == 'operator_requirement.json'
         assert args.output == 'result.json'
         assert args.format == 'xml'
         assert args.include_metadata is True
     
-    def test_parser_subset_vs_device_command(self, cli):
-        """Test subset vs device command parsing."""
+    def test_parser_operator_requirement_vs_device_command(self, cli):
+        """Test operator requirement vs device command parsing."""
         parser = cli.create_parser()
         
         args = parser.parse_args([
-            'subset-vs-device',
-            '--subset-file', 'subset.json',
+            'operator-requirement-vs-device',
+            '--operator-requirement-file', 'operator_requirement.json',
             '--device-config', 'device.json',
             '--output', 'result.json',
             '--include-validation'
         ])
         
-        assert args.command == 'subset-vs-device'
-        assert args.subset_file == 'subset.json'
+        assert args.command == 'operator-requirement-vs-device'
+        assert args.operator_requirement_file == 'operator_requirement.json'
         assert args.device_config == 'device.json'
         assert args.output == 'result.json'
         assert args.include_validation is True
@@ -284,7 +284,7 @@ class TestTR181ComparatorCLI:
         with patch.object(cli, 'config_manager') as mock_config_manager:
             mock_config = Mock()
             mock_config.devices = []
-            mock_config.subsets = []
+            mock_config.operator_requirements = []
             mock_config.hook_configs = {}
             mock_config_manager.get_config.return_value = mock_config
             mock_config_manager.load_config.return_value = mock_config
@@ -306,15 +306,15 @@ class TestTR181ComparatorCLI:
                 mock_config_manager.save_config.assert_called_once()
     
     @pytest.mark.asyncio
-    async def test_run_validate_subset_command(self, cli, temp_config_file, temp_subset_file):
-        """Test running validate-subset command."""
+    async def test_run_validate_operator_requirement_command(self, cli, temp_config_file, temp_operator_requirement_file):
+        """Test running validate-operator-requirement command."""
         with patch.object(cli, 'app') as mock_app:
-            mock_app.validate_subset_file = AsyncMock(return_value=(True, []))
+            mock_app.validate_operator_requirement_file = AsyncMock(return_value=(True, []))
             
             result = await cli.run([
                 '--config', temp_config_file,
-                'validate-subset',
-                '--subset-file', temp_subset_file
+                'validate-operator-requirement',
+                '--operator-requirement-file', temp_operator_requirement_file
             ])
             assert result == 0
     
@@ -348,9 +348,9 @@ class TestTR181ComparatorCLI:
                 assert output_path.exists()
     
     @pytest.mark.asyncio
-    async def test_run_subset_vs_device_command(self, cli, temp_config_file, 
-                                              temp_subset_file, temp_device_config):
-        """Test running subset-vs-device command."""
+    async def test_run_operator_requirement_vs_device_command(self, cli, temp_config_file, 
+                                              temp_operator_requirement_file, temp_device_config):
+        """Test running operator-requirement-vs-device command."""
         mock_result = ComparisonResult(
             only_in_source1=[],
             only_in_source2=[],
@@ -367,13 +367,13 @@ class TestTR181ComparatorCLI:
             output_path = Path(temp_dir) / 'result.json'
             
             with patch.object(cli, 'app') as mock_app:
-                mock_app.compare_subset_vs_device = AsyncMock(return_value=mock_result)
+                mock_app.compare_operator_requirement_vs_device = AsyncMock(return_value=mock_result)
                 mock_app.export_result_as_json = AsyncMock()
                 
                 result = await cli.run([
                     '--config', temp_config_file,
-                    'subset-vs-device',
-                    '--subset-file', temp_subset_file,
+                    'operator-requirement-vs-device',
+                    '--operator-requirement-file', temp_operator_requirement_file,
                     '--device-config', temp_device_config,
                     '--output', str(output_path)
                 ])
@@ -383,12 +383,12 @@ class TestTR181ComparatorCLI:
     async def test_error_handling(self, cli, temp_config_file):
         """Test CLI error handling."""
         with patch.object(cli, 'app') as mock_app:
-            mock_app.validate_subset_file = AsyncMock(side_effect=Exception("Test error"))
+            mock_app.validate_operator_requirement_file = AsyncMock(side_effect=Exception("Test error"))
             
             result = await cli.run([
                 '--config', temp_config_file,
-                'validate-subset',
-                '--subset-file', 'nonexistent.json'
+                'validate-operator-requirement',
+                '--operator-requirement-file', 'nonexistent.json'
             ])
             assert result == 1
     
@@ -461,11 +461,11 @@ class TestCLIIntegrationWorkflows:
                     "name": "Test Device"
                 }
             ],
-            "subsets": [
+            "operator_requirements": [
                 {
-                    "name": "Test Subset",
-                    "description": "Test subset for CLI testing",
-                    "file_path": str(temp_path / "subset.json"),
+                    "name": "Test Operator Requirement",
+                    "description": "Test operator requirement for CLI testing",
+                    "file_path": str(temp_path / "operator_requirement.json"),
                     "version": "1.0"
                 }
             ],
@@ -482,12 +482,12 @@ class TestCLIIntegrationWorkflows:
         with open(config_file, 'w') as f:
             json.dump(config_data, f)
         
-        # Create subset file
-        subset_data = {
+        # Create operator requirement file
+        operator_requirement_data = {
             "version": "1.0",
             "metadata": {
                 "created": "2025-01-01T00:00:00",
-                "description": "Test subset definition",
+                "description": "Test operator requirement definition",
                 "total_nodes": 1,
                 "custom_nodes": 0
             },
@@ -504,9 +504,9 @@ class TestCLIIntegrationWorkflows:
             ]
         }
         
-        subset_file = temp_path / "subset.json"
-        with open(subset_file, 'w') as f:
-            json.dump(subset_data, f)
+        operator_requirement_file = temp_path / "operator_requirement.json"
+        with open(operator_requirement_file, 'w') as f:
+            json.dump(operator_requirement_data, f)
         
         # Create device config file
         device_config = {
@@ -524,7 +524,7 @@ class TestCLIIntegrationWorkflows:
         yield {
             'temp_dir': temp_path,
             'config_file': config_file,
-            'subset_file': subset_file,
+            'operator_requirement_file': operator_requirement_file,
             'device_config_file': device_config_file
         }
         
@@ -533,8 +533,8 @@ class TestCLIIntegrationWorkflows:
         shutil.rmtree(temp_dir)
     
     @pytest.mark.asyncio
-    async def test_complete_subset_vs_device_workflow(self, setup_test_environment):
-        """Test complete subset vs device comparison workflow."""
+    async def test_complete_operator_requirement_vs_device_workflow(self, setup_test_environment):
+        """Test complete operator requirement vs device comparison workflow."""
         env = setup_test_environment
         cli = TR181ComparatorCLI()
         
@@ -560,22 +560,22 @@ class TestCLIIntegrationWorkflows:
         
         with patch('tr181_comparator.cli.TR181ComparatorApp') as mock_app_class:
             mock_app = AsyncMock()
-            mock_app.compare_subset_vs_device = AsyncMock(return_value=mock_result)
+            mock_app.compare_operator_requirement_vs_device = AsyncMock(return_value=mock_result)
             mock_app.export_result_as_json = AsyncMock()
             mock_app_class.return_value = mock_app
             
             result = await cli.run([
                 '--config', str(env['config_file']),
                 '--verbose',
-                'subset-vs-device',
-                '--subset-file', str(env['subset_file']),
+                'operator-requirement-vs-device',
+                '--operator-requirement-file', str(env['operator_requirement_file']),
                 '--device-config', str(env['device_config_file']),
                 '--output', str(output_file),
                 '--include-validation'
             ])
             
             assert result == 0
-            mock_app.compare_subset_vs_device.assert_called_once()
+            mock_app.compare_operator_requirement_vs_device.assert_called_once()
             mock_app.export_result_as_json.assert_called_once()
     
     @pytest.mark.asyncio
@@ -626,15 +626,15 @@ class TestCLIIntegrationWorkflows:
             result = await cli.run([
                 '--config', str(env['config_file']),
                 'extract',
-                '--source-type', 'subset',
-                '--source-config', str(env['subset_file']),
+                '--source-type', 'operator-requirement',
+                '--source-config', str(env['operator_requirement_file']),
                 '--output', str(output_file)
             ])
             
             assert result == 0
             mock_app.extract_nodes.assert_called_once_with(
-                source_type='subset', 
-                source_config_path=str(env['subset_file'])
+                source_type='operator-requirement', 
+                source_config_path=str(env['operator_requirement_file'])
             )
     
     @pytest.mark.asyncio
@@ -643,26 +643,26 @@ class TestCLIIntegrationWorkflows:
         env = setup_test_environment
         cli = TR181ComparatorCLI()
         
-        # Test with invalid subset file
+        # Test with invalid operator requirement file
         result = await cli.run([
             '--config', str(env['config_file']),
-            'validate-subset',
-            '--subset-file', 'nonexistent.json'
+            'validate-operator-requirement',
+            '--operator-requirement-file', 'nonexistent.json'
         ])
         assert result == 1
         
         # Test with invalid device config
         with patch('tr181_comparator.cli.TR181ComparatorApp') as mock_app_class:
             mock_app = AsyncMock()
-            mock_app.compare_subset_vs_device = AsyncMock(
+            mock_app.compare_operator_requirement_vs_device = AsyncMock(
                 side_effect=Exception("Connection failed")
             )
             mock_app_class.return_value = mock_app
             
             result = await cli.run([
                 '--config', str(env['config_file']),
-                'subset-vs-device',
-                '--subset-file', str(env['subset_file']),
+                'operator-requirement-vs-device',
+                '--operator-requirement-file', str(env['operator_requirement_file']),
                 '--device-config', str(env['device_config_file']),
                 '--output', str(env['temp_dir'] / 'result.json')
             ])

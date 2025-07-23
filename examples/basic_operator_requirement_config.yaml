@@ -1,0 +1,37 @@
+devices:
+  - name: main_gateway
+    type: cwmp
+    endpoint: http://192.168.1.1:7547/cwmp
+    authentication:
+      type: basic
+      username: admin
+      password: admin123
+    timeout: 30
+    retry_count: 3
+  - name: wifi_access_point
+    type: rest
+    endpoint: http://192.168.1.10/api/tr181
+    authentication:
+      type: bearer
+      token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    timeout: 20
+    retry_count: 2
+
+operator_requirements:
+  - name: wifi_parameters
+    description: WiFi-related TR181 parameters
+    file_path: operator_requirements/wifi.json
+    version: "1.0"
+  - name: device_info
+    description: Basic device information
+    file_path: operator_requirements/device_info.yaml
+    version: "1.0"
+
+export_settings:
+  default_format: json
+  include_metadata: true
+  output_directory: reports
+  timestamp_format: ISO8601
+
+hook_configs: {}
+connection_defaults: {}

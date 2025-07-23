@@ -12,12 +12,13 @@ from typing import List, Dict, Any
 from unittest.mock import AsyncMock, MagicMock
 
 from tr181_comparator.models import (
-    TR181Node, AccessLevel, ValueRange, TR181Event, TR181Function
+    TR181Node, AccessLevel, ValueRange, TR181Event, TR181Function, Severity
 )
 from tr181_comparator.main import TR181ComparatorApp
-from tr181_comparator.config import SystemConfig, DeviceConfig, SubsetConfig, ExportConfig
+from tr181_comparator.config import SystemConfig, DeviceConfig, OperatorRequirementConfig, ExportConfig
 from tr181_comparator.comparison import ComparisonEngine, EnhancedComparisonEngine
-from tr181_comparator.extractors import SubsetManager, HookBasedDeviceExtractor
+from tr181_comparator.extractors import OperatorRequirementManager, HookBasedDeviceExtractor
+from tr181_comparator.errors import ConnectionError as TR181ConnectionError
 from tr181_comparator.hooks import DeviceHookFactory, HookType, DeviceConfig as HookDeviceConfig
 from tr181_comparator.validation import TR181Validator
 from tr181_comparator.errors import ConnectionError, ValidationError
@@ -92,8 +93,8 @@ class AcceptanceTestDataGenerator:
         ]
     
     @staticmethod
-    def create_custom_subset_nodes() -> List[TR181Node]:
-        """Create custom subset nodes including standard and custom parameters."""
+    def create_custom_operator_requirement_nodes() -> List[TR181Node]:
+        """Create custom operator requirement nodes including standard and custom parameters."""
         return [
             # Standard TR181 nodes
             TR181Node(
@@ -102,7 +103,7 @@ class AcceptanceTestDataGenerator:
                 data_type="string",
                 access=AccessLevel.READ_ONLY,
                 value="Custom_Manufacturer",
-                description="Device manufacturer in custom subset"
+                description="Device manufacturer in custom operator requirement"
             ),
             TR181Node(
                 path="Device.WiFi.Radio.1.Enable",
@@ -110,7 +111,7 @@ class AcceptanceTestDataGenerator:
                 data_type="boolean",
                 access=AccessLevel.READ_WRITE,
                 value=True,
-                description="WiFi radio enable in custom subset"
+                description="WiFi radio enable in custom operator requirement"
             ),
             TR181Node(
                 path="Device.WiFi.Radio.1.Channel",
@@ -118,7 +119,7 @@ class AcceptanceTestDataGenerator:
                 data_type="int",
                 access=AccessLevel.READ_WRITE,
                 value=11,
-                description="WiFi channel in custom subset",
+                description="WiFi channel in custom operator requirement",
                 value_range=ValueRange(min_value=1, max_value=165)
             ),
             # Custom nodes
@@ -172,8 +173,8 @@ class AcceptanceTestDataGenerator:
                 description="WiFi channel from actual device",
                 value_range=ValueRange(min_value=1, max_value=165)
             ),
-            # Missing some parameters that are in subset
-            # Extra parameter not in subset
+            # Missing some parameters that are in operator requirement
+            # Extra parameter not in operator requirement
             TR181Node(
                 path="Device.Implementation.ExtraParameter",
                 name="ExtraParameter",
@@ -399,25 +400,25 @@ class TestRequirement1_CWMPExtraction:
         extractor = HookBasedDeviceExtractor(mock_hook, config)
         
         # Act & Assert
-        with pytest.raises(ConnectionError) as exc_info:
+        with pytest.raises(TR181ConnectionError) as exc_info:
             await extractor.extract()
         
         # Verify specific error details are provided
         error = exc_info.value
         assert "Failed to connect to device" in str(error)
-        assert hasattr(error, 'error_id')
+        assert hasattr(error, 'error_code')
         assert hasattr(error, 'category')
         
         print("✓ AC 1.4: Successfully reported specific error details for invalid CWMP source")
 
 
-class TestRequirement2_CustomSubsetDefinition:
-    """Test Requirement 2: Define custom subset of TR181 nodes with additional custom nodes."""
+class TestRequirement2_CustomOperatorRequirementDefinition:
+    """Test Requirement 2: Define custom operator requirement of TR181 nodes with additional custom nodes."""
     
     @pytest.mark.asyncio
     async def test_2_1_allow_selection_of_specific_tr181_nodes(self, tmp_path):
         """
-        WHEN defining a custom subset THEN the system SHALL allow selection of 
+        WHEN defining a custom operator requirement THEN the system SHALL allow selection of 
         specific TR181 nodes from the standard
         """
         # Arrange
@@ -428,12 +429,12 @@ class TestRequirement2_CustomSubsetDefinition:
             standard_nodes[3],  # Device.WiFi.Radio.1.Channel
         ]
         
-        subset_file = tmp_path / "selected_subset.json"
-        subset_manager = SubsetManager(str(subset_file))
+        operator_requirement_file = tmp_path / "selected_operator_requirement.json"
+        operator_requirement_manager = OperatorRequirementManager(str(operator_requirement_file))
         
         # Act
-        await subset_manager.save_subset(selected_nodes)
-        loaded_nodes = await subset_manager.extract()
+        await operator_requirement_manager.save_operator_requirement(selected_nodes)
+        loaded_nodes = await operator_requirement_manager.extract()
         
         # Assert
         assert len(loaded_nodes) == 3
@@ -485,12 +486,12 @@ class TestRequirement2_CustomSubsetDefinition:
             )
         ]
         
-        subset_file = tmp_path / "custom_nodes_subset.json"
-        subset_manager = SubsetManager(str(subset_file))
+        operator_requirement_file = tmp_path / "custom_nodes_operator_requirement.json"
+        operator_requirement_manager = OperatorRequirementManager(str(operator_requirement_file))
         
         # Act
-        await subset_manager.save_subset(custom_nodes)
-        loaded_nodes = await subset_manager.extract()
+        await operator_requirement_manager.save_operator_requirement(custom_nodes)
+        loaded_nodes = await operator_requirement_manager.extract()
         
         # Assert
         assert len(loaded_nodes) == 3
@@ -545,17 +546,17 @@ class TestRequirement2_CustomSubsetDefinition:
             )
         ]
         
-        subset_file = tmp_path / "validation_subset.json"
-        subset_manager = SubsetManager(str(subset_file))
+        operator_requirement_file = tmp_path / "validation_operator_requirement.json"
+        operator_requirement_manager = OperatorRequirementManager(str(operator_requirement_file))
         
         # Act & Assert - Valid nodes should save successfully
-        await subset_manager.save_subset(valid_nodes)
-        validation_result = await subset_manager.validate()
+        await operator_requirement_manager.save_operator_requirement(valid_nodes)
+        validation_result = await operator_requirement_manager.validate()
         assert validation_result.is_valid
         
         # Invalid nodes should trigger validation warnings
-        await subset_manager.save_subset(invalid_nodes)
-        validation_result = await subset_manager.validate()
+        await operator_requirement_manager.save_operator_requirement(invalid_nodes)
+        validation_result = await operator_requirement_manager.validate()
         # Should have warnings about naming convention violations
         assert len(validation_result.warnings) > 0 or not validation_result.is_valid
         
@@ -587,12 +588,12 @@ class TestRequirement2_CustomSubsetDefinition:
             )
         ]
         
-        subset_file = tmp_path / "duplicate_subset.json"
-        subset_manager = SubsetManager(str(subset_file))
+        operator_requirement_file = tmp_path / "duplicate_operator_requirement.json"
+        operator_requirement_manager = OperatorRequirementManager(str(operator_requirement_file))
         
         # Act & Assert
         with pytest.raises(ValidationError) as exc_info:
-            await subset_manager.save_subset(duplicate_nodes)
+            await operator_requirement_manager.save_operator_requirement(duplicate_nodes)
         
         # Verify error message mentions duplicates
         error_message = str(exc_info.value)
@@ -601,28 +602,28 @@ class TestRequirement2_CustomSubsetDefinition:
         print("✓ AC 2.4: Successfully reported duplicate node conflicts and prevented saving")
 
 
-class TestRequirement3_CWMPVsSubsetComparison:
-    """Test Requirement 3: Compare CWMP TR181 nodes against custom subset."""
+class TestRequirement3_CWMPVsOperatorRequirementComparison:
+    """Test Requirement 3: Compare CWMP TR181 nodes against custom operator requirement."""
     
     @pytest.mark.asyncio
-    async def test_3_1_identify_nodes_missing_from_subset(self):
+    async def test_3_1_identify_nodes_missing_from_operator_requirement(self):
         """
-        WHEN comparing CWMP nodes to custom subset THEN the system SHALL identify 
-        nodes present in CWMP but missing from subset
+        WHEN comparing CWMP nodes to custom operator requirement THEN the system SHALL identify 
+        nodes present in CWMP but missing from operator requirement
         """
         # Arrange
         cwmp_nodes = AcceptanceTestDataGenerator.create_cwmp_nodes()  # 7 nodes
-        subset_nodes = cwmp_nodes[:4]  # Only first 4 nodes
+        operator_requirement_nodes = cwmp_nodes[:4]  # Only first 4 nodes
         
         comparison_engine = ComparisonEngine()
         
         # Act
-        result = await comparison_engine.compare(cwmp_nodes, subset_nodes)
+        result = await comparison_engine.compare(cwmp_nodes, operator_requirement_nodes)
         
         # Assert
         assert len(result.only_in_source1) == 3  # 3 nodes only in CWMP
         assert result.summary.total_nodes_source1 == 7  # Total CWMP nodes
-        assert result.summary.total_nodes_source2 == 4  # Total subset nodes
+        assert result.summary.total_nodes_source2 == 4  # Total operator requirement nodes
         
         # Verify the missing nodes are correctly identified
         missing_paths = [node.path for node in result.only_in_source1]
@@ -645,23 +646,23 @@ class TestRequirement3_CWMPVsSubsetComparison:
         """
         # Arrange
         cwmp_nodes = AcceptanceTestDataGenerator.create_cwmp_nodes()
-        subset_nodes = AcceptanceTestDataGenerator.create_custom_subset_nodes()  # Includes custom nodes
+        operator_requirement_nodes = AcceptanceTestDataGenerator.create_custom_operator_requirement_nodes()  # Includes custom nodes
         
         comparison_engine = ComparisonEngine()
         
         # Act
-        result = await comparison_engine.compare(cwmp_nodes, subset_nodes)
+        result = await comparison_engine.compare(cwmp_nodes, operator_requirement_nodes)
         
         # Assert
-        subset_only_nodes = result.only_in_source2
-        assert len(subset_only_nodes) >= 2  # At least the 2 custom nodes
+        operator_requirement_only_nodes = result.only_in_source2
+        assert len(operator_requirement_only_nodes) >= 2  # At least the 2 custom nodes
         
-        # Verify custom nodes are identified as subset-only
-        custom_paths = [node.path for node in subset_only_nodes if getattr(node, 'is_custom', False)]
+        # Verify custom nodes are identified as operator-requirement-only
+        custom_paths = [node.path for node in operator_requirement_only_nodes if getattr(node, 'is_custom', False)]
         assert "Device.Custom.VendorSpecific.Parameter1" in custom_paths
         assert "Device.Custom.VendorSpecific.Parameter2" in custom_paths
         
-        print("✓ AC 3.2: Successfully identified nodes present in subset but missing from CWMP")
+        print("✓ AC 3.2: Successfully identified nodes present in operator requirement but missing from CWMP")
     
     @pytest.mark.asyncio
     async def test_3_3_generate_detailed_comparison_report(self):
@@ -672,8 +673,8 @@ class TestRequirement3_CWMPVsSubsetComparison:
         # Arrange
         cwmp_nodes = AcceptanceTestDataGenerator.create_cwmp_nodes()
         
-        # Create modified subset with different values/properties
-        subset_nodes = []
+        # Create modified operator requirement with different values/properties
+        operator_requirement_nodes = []
         for node in cwmp_nodes[:3]:
             modified_node = TR181Node(
                 path=node.path,
@@ -683,12 +684,12 @@ class TestRequirement3_CWMPVsSubsetComparison:
                 value=f"modified_{node.value}" if isinstance(node.value, str) else node.value,
                 description=f"Modified: {node.description}"
             )
-            subset_nodes.append(modified_node)
+            operator_requirement_nodes.append(modified_node)
         
         comparison_engine = ComparisonEngine()
         
         # Act
-        result = await comparison_engine.compare(cwmp_nodes, subset_nodes)
+        result = await comparison_engine.compare(cwmp_nodes, operator_requirement_nodes)
         
         # Assert
         assert len(result.differences) > 0  # Should find differences
@@ -704,8 +705,8 @@ class TestRequirement3_CWMPVsSubsetComparison:
         
         # Verify summary information
         assert result.summary.total_nodes_source1 == len(cwmp_nodes)
-        assert result.summary.total_nodes_source2 == len(subset_nodes)
-        assert result.summary.common_nodes == len(subset_nodes)
+        assert result.summary.total_nodes_source2 == len(operator_requirement_nodes)
+        assert result.summary.common_nodes == len(operator_requirement_nodes)
         assert result.summary.differences_count == len(result.differences)
         
         print("✓ AC 3.3: Successfully generated detailed report showing differences in structure, types, and access")
@@ -757,7 +758,7 @@ class TestRequirement3_CWMPVsSubsetComparison:
         data_type_diff = next(d for d in differences if d.property == "data_type")
         assert data_type_diff.source1_value == "int"
         assert data_type_diff.source2_value == "string"
-        assert data_type_diff.severity in [s.value for s in Severity]
+        assert data_type_diff.severity in Severity
         
         access_diff = next(d for d in differences if d.property == "access")
         assert access_diff.source1_value == AccessLevel.READ_WRITE.value
@@ -766,8 +767,8 @@ class TestRequirement3_CWMPVsSubsetComparison:
         print("✓ AC 3.4: Successfully highlighted specific property mismatches")
 
 
-class TestRequirement4_SubsetVsDeviceComparison:
-    """Test Requirement 4: Compare custom subset against actual device implementations."""
+class TestRequirement4_OperatorRequirementVsDeviceComparison:
+    """Test Requirement 4: Compare custom operator requirement against actual device implementations."""
     
     @pytest.mark.asyncio
     async def test_4_1_connect_and_retrieve_device_data_model(self):
@@ -816,13 +817,13 @@ class TestRequirement4_SubsetVsDeviceComparison:
         nodes that match the subset specification
         """
         # Arrange
-        subset_nodes = AcceptanceTestDataGenerator.create_custom_subset_nodes()
+        operator_requirement_nodes = AcceptanceTestDataGenerator.create_custom_operator_requirement_nodes()
         device_nodes = AcceptanceTestDataGenerator.create_device_implementation_nodes()
         
-        # Save subset
-        subset_file = tmp_path / "device_comparison_subset.json"
-        subset_manager = SubsetManager(str(subset_file))
-        await subset_manager.save_subset(subset_nodes)
+        # Save operator requirement
+        operator_requirement_file = tmp_path / "device_comparison_operator_requirement.json"
+        operator_requirement_manager = OperatorRequirementManager(str(operator_requirement_file))
+        await operator_requirement_manager.save_operator_requirement(operator_requirement_nodes)
         
         # Create device extractor
         mock_hook = MockAcceptanceHook(device_nodes)
@@ -837,7 +838,7 @@ class TestRequirement4_SubsetVsDeviceComparison:
         
         # Act
         enhanced_engine = EnhancedComparisonEngine()
-        result = await enhanced_engine.compare_with_validation(subset_nodes, device_nodes, device_extractor)
+        result = await enhanced_engine.compare_with_validation(operator_requirement_nodes, device_nodes, device_extractor)
         
         # Assert
         basic_result = result.basic_comparison
@@ -847,9 +848,9 @@ class TestRequirement4_SubsetVsDeviceComparison:
         assert common_nodes > 0
         
         # Verify specific matches
-        subset_paths = {node.path for node in subset_nodes}
+        operator_requirement_paths = {node.path for node in operator_requirement_nodes}
         device_paths = {node.path for node in device_nodes}
-        expected_matches = subset_paths & device_paths
+        expected_matches = operator_requirement_paths & device_paths
         
         assert common_nodes == len(expected_matches)
         
@@ -866,24 +867,23 @@ class TestRequirement4_SubsetVsDeviceComparison:
         extra implementations, and property mismatches
         """
         # Arrange
-        subset_nodes = AcceptanceTestDataGenerator.create_custom_subset_nodes()  # 5 nodes
+        operator_requirement_nodes = AcceptanceTestDataGenerator.create_custom_operator_requirement_nodes()  # 5 nodes
         device_nodes = AcceptanceTestDataGenerator.create_device_implementation_nodes()  # 4 nodes, some different
         
         comparison_engine = ComparisonEngine()
         
         # Act
-        result = await comparison_engine.compare(subset_nodes, device_nodes)
+        result = await comparison_engine.compare(operator_requirement_nodes, device_nodes)
         
         # Assert
         # Missing implementations (in subset but not in device)
         missing_implementations = result.only_in_source1
         assert len(missing_implementations) > 0
         
-        # Should include the custom nodes and WiFi.Radio.1.Channel
+        # Should include the custom nodes
         missing_paths = [node.path for node in missing_implementations]
         assert "Device.Custom.VendorSpecific.Parameter1" in missing_paths
         assert "Device.Custom.VendorSpecific.Parameter2" in missing_paths
-        assert "Device.WiFi.Radio.1.Channel" in missing_paths
         
         # Extra implementations (in device but not in subset)
         extra_implementations = result.only_in_source2
@@ -923,7 +923,7 @@ class TestRequirement4_SubsetVsDeviceComparison:
         extractor = HookBasedDeviceExtractor(mock_hook, config)
         
         # Act & Assert
-        with pytest.raises(ConnectionError) as exc_info:
+        with pytest.raises(TR181ConnectionError) as exc_info:
             await extractor.extract()
         
         # Verify clear error message
@@ -931,7 +931,7 @@ class TestRequirement4_SubsetVsDeviceComparison:
         error_message = str(error)
         
         assert "connect" in error_message.lower() or "connection" in error_message.lower()
-        assert hasattr(error, 'error_id')  # Should have error ID for tracking
+        assert hasattr(error, 'error_code')  # Should have error code for tracking
         assert hasattr(error, 'category')  # Should have error category
         
         # Verify error provides actionable information

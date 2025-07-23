@@ -1,0 +1,71 @@
+{
+  "metadata": {
+    "name": "WiFi Operator Requirements",
+    "description": "TR181 parameters required for WiFi functionality",
+    "version": "1.0",
+    "created_date": "2024-01-01T00:00:00Z",
+    "total_nodes": 5,
+    "format": "json"
+  },
+  "nodes": [
+    {
+      "path": "Device.WiFi.Radio.1.Channel",
+      "name": "Channel",
+      "data_type": "int",
+      "access": "read_write",
+      "value": 6,
+      "description": "WiFi channel number",
+      "is_custom": false,
+      "value_range": {
+        "min_value": 1,
+        "max_value": 11
+      }
+    },
+    {
+      "path": "Device.WiFi.SSID.1.SSID",
+      "name": "SSID",
+      "data_type": "string",
+      "access": "read_write",
+      "value": "MyNetwork",
+      "description": "WiFi network name",
+      "is_custom": false,
+      "value_range": {
+        "max_length": 32
+      }
+    },
+    {
+      "path": "Device.WiFi.AccessPoint.1.Security.ModeEnabled",
+      "name": "ModeEnabled",
+      "data_type": "string",
+      "access": "read_write",
+      "value": "WPA2-PSK",
+      "description": "WiFi security mode",
+      "is_custom": false,
+      "value_range": {
+        "allowed_values": ["WPA2-PSK", "WPA3-PSK", "WPA2-Enterprise"]
+      }
+    },
+    {
+      "path": "Device.WiFi.Radio.1.TransmitPower",
+      "name": "TransmitPower",
+      "data_type": "int",
+      "access": "read_write",
+      "value": 20,
+      "description": "WiFi transmit power in dBm",
+      "is_custom": false,
+      "value_range": {
+        "min_value": 1,
+        "max_value": 30
+      }
+    },
+    {
+      "path": "Device.WiFi.AccessPoint.1.Enable",
+      "name": "Enable",
+      "data_type": "boolean",
+      "access": "read_write",
+      "value": true,
+      "description": "Enable/disable WiFi access point",
+      "is_custom": false
+    }
+  ]
+}

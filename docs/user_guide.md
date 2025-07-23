@@ -15,8 +15,8 @@
 
 The TR181 Node Comparator is a powerful tool for analyzing and comparing TR181 data model implementations across different sources. It supports three primary comparison scenarios:
 
-1. **CWMP vs Custom Subset**: Compare TR181 nodes from a CWMP source against your custom subset definitions
-2. **Custom Subset vs Device**: Validate that a device correctly implements your custom TR181 subset
+1. **CWMP vs Operator Requirement**: Compare TR181 nodes from a CWMP source against your operator requirement definitions
+2. **Operator Requirement vs Device**: Validate that a device correctly implements your TR181 operator requirements
 3. **Device vs Device**: Compare TR181 implementations between two different devices
 
 ## Installation
@@ -69,12 +69,12 @@ async def extract_cwmp_nodes():
 asyncio.run(extract_cwmp_nodes())
 ```
 
-### 2. Create a Custom Subset
+### 2. Create a Custom Operator Requirement
 
 ```python
-from tr181_comparator import SubsetManager, TR181Node, AccessLevel
+from tr181_comparator import OperatorRequirementManager, TR181Node, AccessLevel
 
-async def create_custom_subset():
+async def create_custom_operator_requirement():
     # Define custom nodes
     nodes = [
         TR181Node(
@@ -93,18 +93,18 @@ async def create_custom_subset():
         )
     ]
     
-    # Save subset
-    subset_manager = SubsetManager("my_wifi_subset.json")
-    await subset_manager.save_subset(nodes)
-    print("Custom subset saved successfully")
+    # Save operator requirement
+    operator_requirement_manager = OperatorRequirementManager("my_wifi_operator_requirement.json")
+    await operator_requirement_manager.save_operator_requirement(nodes)
+    print("Custom operator requirement saved successfully")
 
-asyncio.run(create_custom_subset())
+asyncio.run(create_custom_operator_requirement())
 ```
 
 ### 3. Basic Comparison
 
 ```python
-from tr181_comparator import ComparisonEngine, CWMPExtractor, SubsetManager
+from tr181_comparator import ComparisonEngine, CWMPExtractor, OperatorRequirementManager
 
 async def basic_comparison():
     # Extract from CWMP
@@ -115,18 +115,18 @@ async def basic_comparison():
     })
     cwmp_nodes = await cwmp_extractor.extract()
     
-    # Load subset
-    subset_manager = SubsetManager('my_wifi_subset.json')
-    subset_nodes = await subset_manager.extract()
+    # Load operator requirement
+    operator_requirement_manager = OperatorRequirementManager('my_wifi_operator_requirement.json')
+    operator_requirement_nodes = await operator_requirement_manager.extract()
     
     # Compare
     engine = ComparisonEngine()
-    result = await engine.compare(cwmp_nodes, subset_nodes)
+    result = await engine.compare(cwmp_nodes, operator_requirement_nodes)
     
     # Display results
     print(f"Comparison Summary:")
     print(f"  Total CWMP nodes: {result.summary.total_nodes_source1}")
-    print(f"  Total subset nodes: {result.summary.total_nodes_source2}")
+    print(f"  Total operator requirement nodes: {result.summary.total_nodes_source2}")
     print(f"  Common nodes: {result.summary.common_nodes}")
     print(f"  Differences: {result.summary.differences_count}")
     
@@ -145,12 +145,12 @@ asyncio.run(basic_comparison())
 
 ## Comparison Scenarios
 
-### Scenario 1: CWMP vs Custom Subset
+### Scenario 1: CWMP vs Custom Operator Requirement
 
-This scenario helps you understand which standard TR181 nodes are available in your CWMP device but not included in your custom subset.
+This scenario helps you understand which standard TR181 nodes are available in your CWMP device but not included in your custom operator requirement.
 
 ```python
-async def cwmp_vs_subset_comparison():
+async def cwmp_vs_operator_requirement_comparison():
     # Configure CWMP source
     cwmp_config = {
         'endpoint': 'http://192.168.1.1:7547/cwmp',
@@ -160,41 +160,41 @@ async def cwmp_vs_subset_comparison():
     
     # Extract from both sources
     cwmp_extractor = CWMPExtractor(cwmp_config)
-    subset_manager = SubsetManager('device_subset.json')
+    operator_requirement_manager = OperatorRequirementManager('device_operator_requirement.json')
     
     cwmp_nodes = await cwmp_extractor.extract()
-    subset_nodes = await subset_manager.extract()
+    operator_requirement_nodes = await operator_requirement_manager.extract()
     
     # Perform comparison
     engine = ComparisonEngine()
-    result = await engine.compare(cwmp_nodes, subset_nodes)
+    result = await engine.compare(cwmp_nodes, operator_requirement_nodes)
     
     # Analyze missing standard nodes
-    print("Standard TR181 nodes missing from your subset:")
+    print("Standard TR181 nodes missing from your operator requirement:")
     for node in result.only_in_source1:
         if not node.is_custom:  # Only show standard nodes
             print(f"  {node.path} ({node.data_type})")
     
     # Analyze custom nodes not in CWMP
-    print("\nCustom nodes in subset not available via CWMP:")
+    print("\nCustom nodes in operator requirement not available via CWMP:")
     for node in result.only_in_source2:
         if node.is_custom:
             print(f"  {node.path} ({node.data_type})")
 
-asyncio.run(cwmp_vs_subset_comparison())
+asyncio.run(cwmp_vs_operator_requirement_comparison())
 ```
 
-### Scenario 2: Custom Subset vs Device Implementation
+### Scenario 2: Custom Operator Requirement vs Device Implementation
 
-This scenario validates that your device correctly implements the TR181 nodes defined in your custom subset.
+This scenario validates that your device correctly implements the TR181 nodes defined in your custom operator requirement.
 
 ```python
 from tr181_comparator import EnhancedComparisonEngine, HookBasedDeviceExtractor, RESTAPIHook, DeviceConfig
 
-async def subset_vs_device_validation():
-    # Load your custom subset
-    subset_manager = SubsetManager('my_device_spec.json')
-    subset_nodes = await subset_manager.extract()
+async def operator_requirement_vs_device_validation():
+    # Load your custom operator requirement
+    operator_requirement_manager = OperatorRequirementManager('my_device_spec.json')
+    operator_requirement_nodes = await operator_requirement_manager.extract()
     
     # Configure device connection
     device_config = DeviceConfig(
@@ -216,7 +216,7 @@ async def subset_vs_device_validation():
     # Perform enhanced comparison with validation
     enhanced_engine = EnhancedComparisonEngine()
     result = await enhanced_engine.compare_with_validation(
-        subset_nodes, 
+        operator_requirement_nodes, 
         device_nodes, 
         device_extractor
     )
@@ -226,7 +226,7 @@ async def subset_vs_device_validation():
     
     print("Device Implementation Validation Report")
     print("=" * 50)
-    print(f"Subset nodes: {summary['basic_comparison']['total_differences']}")
+    print(f"Operator Requirement nodes: {summary['basic_comparison']['total_differences']}")
     print(f"Device nodes: {summary['basic_comparison']['extra_in_device']}")
     print(f"Missing implementations: {summary['basic_comparison']['missing_in_device']}")
     print(f"Validation errors: {summary['validation']['nodes_with_errors']}")
@@ -245,7 +245,7 @@ async def subset_vs_device_validation():
                 for warning in validation_result.warnings:
                     print(f"    {warning}")
 
-asyncio.run(subset_vs_device_validation())
+asyncio.run(operator_requirement_vs_device_validation())
 ```
 
 ### Scenario 3: Device vs Device Comparison
@@ -360,15 +360,15 @@ The system supports JSON and YAML configuration files. Here's a complete example
       }
     }
   ],
-  "subsets": [
+  "operator_requirements": [
     {
-      "name": "wifi_subset",
-      "path": "subsets/wifi_parameters.json",
+      "name": "wifi_operator_requirement",
+      "path": "operator_requirements/wifi_parameters.json",
       "description": "WiFi-related TR181 parameters"
     },
     {
       "name": "device_info",
-      "path": "subsets/device_info.yaml",
+      "path": "operator_requirements/device_info.yaml",
       "description": "Basic device information parameters"
     }
   ],
@@ -392,6 +392,9 @@ config = SystemConfig.load_from_file('config.json')
 # Access configuration
 for device_config in config.devices:
     print(f"Device: {device_config.name} ({device_config.type})")
+
+for operator_requirement_config in config.operator_requirements:
+    print(f"Operator Requirement: {operator_requirement_config.name}")
 ```
 
 ## Command Line Interface
@@ -399,18 +402,18 @@ for device_config in config.devices:
 ### Basic Usage
 
 ```bash
-# Compare CWMP source against subset
-tr181-compare cwmp-vs-subset \
+# Compare CWMP source against operator requirement
+tr181-compare cwmp-vs-operator-requirement \
   --cwmp-endpoint http://device.local:7547/cwmp \
   --cwmp-username admin \
   --cwmp-password password \
-  --subset-file my_subset.json \
+  --operator-requirement-file my_operator_requirement.json \
   --output-format json \
   --output-file comparison_result.json
 
-# Compare subset against device
-tr181-compare subset-vs-device \
-  --subset-file device_spec.json \
+# Compare operator requirement against device
+tr181-compare operator-requirement-vs-device \
+  --operator-requirement-file device_spec.json \
   --device-endpoint http://device.local/api \
   --device-type rest \
   --auth-token your-token \
@@ -432,13 +435,13 @@ tr181-compare device-vs-device \
 
 ```bash
 # Use configuration file
-tr181-compare --config config.json cwmp-vs-subset \
+tr181-compare --config config.json cwmp-vs-operator-requirement \
   --cwmp-device main_gateway \
-  --subset wifi_subset
+  --operator-requirement wifi_operator_requirement
 
 # Enable detailed logging
 tr181-compare --log-level DEBUG --log-file debug.log \
-  subset-vs-device --subset-file spec.json --device-name test_device
+  operator-requirement-vs-device --operator-requirement-file spec.json --device-name test_device
 
 # Export multiple formats
 tr181-compare device-vs-device \
@@ -528,8 +531,8 @@ async def batch_device_comparison():
         'http://device3.local/api'
     ]
     
-    subset_manager = SubsetManager('reference_spec.json')
-    reference_nodes = await subset_manager.extract()
+    operator_requirement_manager = OperatorRequirementManager('reference_spec.json')
+    reference_nodes = await operator_requirement_manager.extract()
     
     results = []
     
@@ -687,10 +690,10 @@ async def validated_subset_creation():
             for error in validation_result.errors:
                 print(f"  {error}")
     
-    # Save validated subset
+    # Save validated operator requirement
     if nodes:
-        subset_manager = SubsetManager('validated_subset.json')
-        await subset_manager.save_subset(nodes)
+        operator_requirement_manager = OperatorRequirementManager('validated_operator_requirement.json')
+        await operator_requirement_manager.save_operator_requirement(nodes)
 ```
 
 ### 5. Reporting and Documentation
@@ -709,7 +712,7 @@ async def comprehensive_reporting():
     technical_report = {
         'metadata': {
             'timestamp': datetime.now().isoformat(),
-            'subset_source': subset_manager.get_source_info(),
+            'operator_requirement_source': operator_requirement_manager.get_source_info(),
             'device_source': device_extractor.get_source_info(),
             'comparison_engine': 'EnhancedComparisonEngine v1.0'
         },
@@ -727,11 +730,11 @@ async def comprehensive_reporting():
     ======================
     
     Device: {device_extractor.get_source_info().identifier}
-    Specification: {subset_manager.get_source_info().identifier}
+    Specification: {operator_requirement_manager.get_source_info().identifier}
     Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
     
     Summary:
-    - Total parameters validated: {len(subset_nodes)}
+    - Total parameters validated: {len(operator_requirement_nodes)}
     - Compliance issues found: {len([r for _, r in result.validation_results if not r.is_valid])}
     - Missing implementations: {len(result.basic_comparison.only_in_source1)}
     - Extra implementations: {len(result.basic_comparison.only_in_source2)}

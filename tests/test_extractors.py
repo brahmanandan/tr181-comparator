@@ -33,14 +33,14 @@ class TestSourceInfo:
         """Test SourceInfo creation with minimal fields."""
         timestamp = datetime.now()
         source = SourceInfo(
-            type="subset",
-            identifier="/path/to/subset.json",
+            type="operator_requirement",
+            identifier="/path/to/operator_requirement.json",
             timestamp=timestamp,
             metadata={}
         )
         
-        assert source.type == "subset"
-        assert source.identifier == "/path/to/subset.json"
+        assert source.type == "operator_requirement"
+        assert source.identifier == "/path/to/operator_requirement.json"
         assert source.timestamp == timestamp
         assert source.metadata == {}
     

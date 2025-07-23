@@ -77,7 +77,7 @@ I have successfully implemented a comprehensive error handling and recovery syst
 ### Updated Extractors Module
 
 - Integrated comprehensive error handling into the base `NodeExtractor` class
-- Enhanced `SubsetManager` with proper error handling for file operations
+- Enhanced `OperatorRequirementManager` with proper error handling for file operations
 - Updated `HookBasedDeviceExtractor` initialization to include retry and degradation managers
 - Improved error messages with context and recovery suggestions
 
@@ -132,7 +132,7 @@ Created `tests/test_error_handling.py` with 31 test cases covering:
 
 Created `tests/test_error_integration.py` with integration scenarios:
 
-- SubsetManager error handling with file operations
+- OperatorRequirementManager error handling with file operations
 - Device extractor retry logic and connection failures
 - Graceful degradation with partial failures
 - Error reporting integration across components

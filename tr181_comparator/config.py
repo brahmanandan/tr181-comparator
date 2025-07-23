@@ -2,10 +2,13 @@
 
 import json
 import yaml
+import warnings
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
+
+from .deprecation import deprecated, deprecated_argument
 
 
 @dataclass
@@ -62,8 +65,8 @@ class HookConfig:
 
 
 @dataclass
-class SubsetConfig:
-    """Configuration for TR181 subset definitions."""
+class OperatorRequirementConfig:
+    """Configuration for TR181 operator requirement definitions."""
     name: str
     description: str
     file_path: str
@@ -72,13 +75,20 @@ class SubsetConfig:
     modified_date: Optional[datetime] = None
     
     def __post_init__(self):
-        """Validate subset configuration after initialization."""
+        """Validate operator requirement configuration after initialization."""
         if not self.name:
-            raise ValueError("Subset name cannot be empty")
+            raise ValueError("Operator requirement name cannot be empty")
         if not self.file_path:
-            raise ValueError("Subset file path cannot be empty")
+            raise ValueError("Operator requirement file path cannot be empty")
         if not self.version:
-            raise ValueError("Subset version cannot be empty")
+            raise ValueError("Operator requirement version cannot be empty")
+
+
+# Create a deprecated alias for backward compatibility
+@deprecated("Use OperatorRequirementConfig instead.")
+class SubsetConfig(OperatorRequirementConfig):
+    """Deprecated: Use OperatorRequirementConfig instead."""
+    pass
 
 
 @dataclass
@@ -109,7 +119,7 @@ class ExportConfig:
 class SystemConfig:
     """Main system configuration containing all subsystem configurations."""
     devices: List[DeviceConfig]
-    subsets: List[SubsetConfig]
+    operator_requirements: List[OperatorRequirementConfig]
     export_settings: ExportConfig
     hook_configs: Dict[str, HookConfig]
     connection_defaults: Dict[str, Any]
@@ -119,8 +129,8 @@ class SystemConfig:
         """Validate system configuration after initialization."""
         if not isinstance(self.devices, list):
             raise ValueError("Devices must be a list")
-        if not isinstance(self.subsets, list):
-            raise ValueError("Subsets must be a list")
+        if not isinstance(self.operator_requirements, list):
+            raise ValueError("Operator requirements must be a list")
         if not isinstance(self.export_settings, ExportConfig):
             raise ValueError("Export settings must be an ExportConfig instance")
         if not isinstance(self.hook_configs, dict):
@@ -223,7 +233,7 @@ class ConfigurationManager:
         """Create a default system configuration."""
         return SystemConfig(
             devices=[],
-            subsets=[],
+            operator_requirements=[],
             export_settings=ExportConfig(
                 default_format='json',
                 include_metadata=True,
@@ -250,16 +260,16 @@ class ConfigurationManager:
                 except Exception as e:
                     errors.append(f"Device {i}: {e}")
             
-            # Validate subsets
-            for i, subset in enumerate(config.subsets):
+            # Validate operator requirements
+            for i, operator_requirement in enumerate(config.operator_requirements):
                 try:
-                    # Re-validate subset config
-                    SubsetConfig(**asdict(subset))
+                    # Re-validate operator requirement config
+                    OperatorRequirementConfig(**asdict(operator_requirement))
                     # Check if file exists
-                    if not Path(subset.file_path).exists():
-                        errors.append(f"Subset {i}: File not found: {subset.file_path}")
+                    if not Path(operator_requirement.file_path).exists():
+                        errors.append(f"Operator requirement {i}: File not found: {operator_requirement.file_path}")
                 except Exception as e:
-                    errors.append(f"Subset {i}: {e}")
+                    errors.append(f"Operator requirement {i}: {e}")
             
             # Validate export settings
             try:
@@ -286,15 +296,37 @@ class ConfigurationManager:
         for device_data in data.get('devices', []):
             devices.append(DeviceConfig(**device_data))
         
-        # Convert subsets
-        subsets = []
-        for subset_data in data.get('subsets', []):
+        # Convert operator requirements
+        operator_requirements = []
+        
+        # Check for deprecated 'subset_configs' key
+        if 'subset_configs' in data and 'operator_requirements' not in data:
+            warnings.warn(
+                "Configuration key 'subset_configs' is deprecated. Use 'operator_requirements' instead.",
+                category=DeprecationWarning,
+                stacklevel=2
+            )
+            operator_requirement_data_list = data.get('subset_configs', [])
+        else:
+            operator_requirement_data_list = data.get('operator_requirements', [])
+        
+        for operator_requirement_data in operator_requirement_data_list:
+            # Handle deprecated 'subset_file_path' key
+            if 'subset_file_path' in operator_requirement_data and 'file_path' not in operator_requirement_data:
+                warnings.warn(
+                    "Configuration key 'subset_file_path' is deprecated. Use 'file_path' instead.",
+                    category=DeprecationWarning,
+                    stacklevel=2
+                )
+                operator_requirement_data['file_path'] = operator_requirement_data.pop('subset_file_path')
+            
             # Handle datetime fields
-            if 'created_date' in subset_data and isinstance(subset_data['created_date'], str):
-                subset_data['created_date'] = datetime.fromisoformat(subset_data['created_date'])
-            if 'modified_date' in subset_data and isinstance(subset_data['modified_date'], str):
-                subset_data['modified_date'] = datetime.fromisoformat(subset_data['modified_date'])
-            subsets.append(SubsetConfig(**subset_data))
+            if 'created_date' in operator_requirement_data and isinstance(operator_requirement_data['created_date'], str):
+                operator_requirement_data['created_date'] = datetime.fromisoformat(operator_requirement_data['created_date'])
+            if 'modified_date' in operator_requirement_data and isinstance(operator_requirement_data['modified_date'], str):
+                operator_requirement_data['modified_date'] = datetime.fromisoformat(operator_requirement_data['modified_date'])
+            
+            operator_requirements.append(OperatorRequirementConfig(**operator_requirement_data))
         
         # Convert export settings
         export_settings = ExportConfig(**data.get('export_settings', {}))
@@ -306,7 +338,7 @@ class ConfigurationManager:
         
         return SystemConfig(
             devices=devices,
-            subsets=subsets,
+            operator_requirements=operator_requirements,
             export_settings=export_settings,
             hook_configs=hook_configs,
             connection_defaults=data.get('connection_defaults', {}),

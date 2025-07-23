@@ -10,7 +10,7 @@ import json
 import yaml
 from dataclasses import asdict
 from tr181_comparator.config import (
-    SystemConfig, DeviceConfig, SubsetConfig, ExportConfig, HookConfig
+    SystemConfig, DeviceConfig, OperatorRequirementConfig, ExportConfig, HookConfig
 )
 
 def create_basic_config():
@@ -50,16 +50,16 @@ def create_basic_config():
         )
     ]
     
-    # Subset configurations
-    subsets = [
-        SubsetConfig(
+    # Operator requirement configurations
+    operator_requirements = [
+        OperatorRequirementConfig(
             name="wifi_parameters",
-            path="subsets/wifi.json",
+            file_path="operator_requirements/wifi.json",
             description="WiFi-related TR181 parameters"
         ),
-        SubsetConfig(
+        OperatorRequirementConfig(
             name="device_info",
-            path="subsets/device_info.yaml",
+            file_path="operator_requirements/device_info.yaml",
             description="Basic device information"
         )
     ]
@@ -75,14 +75,10 @@ def create_basic_config():
     # System configuration
     config = SystemConfig(
         devices=devices,
-        subsets=subsets,
-        export=export_config,
-        logging={
-            "level": "INFO",
-            "file": "tr181_comparator.log",
-            "rotation": "daily",
-            "max_size": "10MB"
-        }
+        operator_requirements=operator_requirements,
+        export_settings=export_config,
+        hook_configs={},
+        connection_defaults={}
     )
     
     return config
@@ -375,21 +371,21 @@ def create_production_config():
         )
     ])
     
-    # Production subsets
-    subsets = [
-        SubsetConfig(
+    # Production operator requirements
+    operator_requirements = [
+        OperatorRequirementConfig(
             name="core_parameters",
-            path="/etc/tr181-comparator/subsets/core.json",
+            file_path="/etc/tr181-comparator/operator_requirements/core.json",
             description="Core TR181 parameters for all devices"
         ),
-        SubsetConfig(
+        OperatorRequirementConfig(
             name="wifi_parameters",
-            path="/etc/tr181-comparator/subsets/wifi.json",
+            file_path="/etc/tr181-comparator/operator_requirements/wifi.json",
             description="WiFi-specific parameters"
         ),
-        SubsetConfig(
+        OperatorRequirementConfig(
             name="monitoring_parameters",
-            path="/etc/tr181-comparator/subsets/monitoring.json",
+            file_path="/etc/tr181-comparator/operator_requirements/monitoring.json",
             description="Parameters for network monitoring"
         )
     ]
@@ -406,17 +402,10 @@ def create_production_config():
     
     config = SystemConfig(
         devices=devices,
-        subsets=subsets,
-        export=export_config,
-        logging={
-            "level": "INFO",
-            "file": "/var/log/tr181-comparator/application.log",
-            "rotation": "daily",
-            "max_size": "100MB",
-            "backup_count": 30,
-            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        },
-        performance={
+        operator_requirements=operator_requirements,
+        export_settings=export_config,
+        hook_configs={},
+        connection_defaults={
             "max_concurrent_connections": 10,
             "connection_timeout": 60,
             "retry_attempts": 3,

@@ -5,7 +5,7 @@ from .models import (
     AccessLevel, Severity
 )
 from .extractors import (
-    NodeExtractor, SourceInfo, ValidationResult
+    NodeExtractor, SourceInfo, ValidationResult, OperatorRequirementManager
 )
 from .errors import (
     TR181Error, ConnectionError, ValidationError, AuthenticationError,
@@ -25,6 +25,9 @@ from .logging import (
     TR181Logger, ComponentLogger, performance_monitor, get_logger,
     initialize_logging, get_performance_summary
 )
+from .config import OperatorRequirementConfig
+from .comparison import ComparisonEngine, EnhancedComparisonEngine, ComparisonResult, EnhancedComparisonResult
+from .extractors import CWMPExtractor, HookBasedDeviceExtractor
 
 __version__ = "0.1.0"
 
@@ -33,7 +36,8 @@ __all__ = [
     'TR181Node', 'ValueRange', 'TR181Event', 'TR181Function',
     'AccessLevel', 'Severity',
     # Extractors
-    'NodeExtractor', 'SourceInfo', 'ValidationResult',
+    'NodeExtractor', 'SourceInfo', 'ValidationResult', 'OperatorRequirementManager',
+    'CWMPExtractor', 'HookBasedDeviceExtractor',
     # Error Handling
     'TR181Error', 'ConnectionError', 'ValidationError', 'AuthenticationError',
     'TimeoutError', 'ProtocolError', 'ConfigurationError', 'ErrorContext',
@@ -50,5 +54,9 @@ __all__ = [
     # Logging and Monitoring
     'LogLevel', 'LogCategory', 'LogEntry', 'PerformanceMetric', 'LoggingConfig',
     'TR181Logger', 'ComponentLogger', 'performance_monitor', 'get_logger',
-    'initialize_logging', 'get_performance_summary'
+    'initialize_logging', 'get_performance_summary',
+    # Configuration
+    'OperatorRequirementConfig',
+    # Comparison
+    'ComparisonEngine', 'EnhancedComparisonEngine', 'ComparisonResult', 'EnhancedComparisonResult'
 ]
