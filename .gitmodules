@@ -1,3 +1,6 @@
 [submodule "cwmp-data-models"]
 	path = cwmp-data-models
 	url = https://github.com/BroadbandForum/cwmp-data-models.git
+[submodule "usp-data-models"]
+	path = usp-data-models
+	url = https://github.com/BroadbandForum/usp-data-models.git
